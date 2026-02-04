@@ -102,7 +102,7 @@ func (s *ADKScheduler) AddAgent(ctx context.Context, persona *types.Persona) err
 	}
 
 	// Create tools
-	forumToolset := tools.NewForumToolset(s.forum, persona.ID)
+	forumToolset := tools.NewForumToolset(s.forum, persona.ID, persona, state)
 	socialToolset := tools.NewSocialToolset(state, persona.ID)
 
 	forumTools, err := forumToolset.AllTools(persona.Name)
@@ -445,8 +445,8 @@ func (s *ADKScheduler) Stats() map[string]interface{} {
 }
 
 // GetAllTools is a helper to get all available tools for an agent.
-func GetAllTools(forum *publication.Forum, state *pkgagent.AgentState, agentID, agentName string) ([]tool.Tool, error) {
-	forumToolset := tools.NewForumToolset(forum, agentID)
+func GetAllTools(forum *publication.Forum, state *pkgagent.AgentState, persona *types.Persona, agentID, agentName string) ([]tool.Tool, error) {
+	forumToolset := tools.NewForumToolset(forum, agentID, persona, state)
 	socialToolset := tools.NewSocialToolset(state, agentID)
 
 	forumTools, err := forumToolset.AllTools(agentName)
