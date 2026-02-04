@@ -8,14 +8,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cpunion/sci-bot/pkg/simulation"
 	"github.com/cpunion/sci-bot/pkg/types"
 )
 
 func main() {
 	outDir := flag.String("out", "./config/agents", "Output directory")
+	count := flag.Int("agents", 5, "Number of agents to generate")
+	seed := flag.Int64("seed", time.Now().UnixNano(), "Random seed")
 	flag.Parse()
 
-	personas := defaultPersonas()
+	personas := simulation.GeneratePersonas(*count, *seed)
 	for _, p := range personas {
 		if err := writeAgentFiles(*outDir, p); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to write %s: %v\n", p.ID, err)
@@ -177,69 +180,4 @@ func collaborationStyle(p *types.Persona) string {
 		return "Reserved, prefers high-signal interventions and observation."
 	}
 	return "Moderate engagement, selective participation."
-}
-
-func defaultPersonas() []*types.Persona {
-	return []*types.Persona{
-		{
-			ID:            "agent-explorer-1",
-			Name:          "Galileo",
-			Role:          types.RoleExplorer,
-			ThinkingStyle: types.StyleDivergent,
-			RiskTolerance: 0.9,
-			Creativity:    0.9,
-			Rigor:         0.4,
-			Domains:       []string{"physics", "astronomy"},
-			Sociability:   0.8,
-			Influence:     0.7,
-		},
-		{
-			ID:            "agent-builder-1",
-			Name:          "Euclid",
-			Role:          types.RoleBuilder,
-			ThinkingStyle: types.StyleConvergent,
-			RiskTolerance: 0.3,
-			Creativity:    0.5,
-			Rigor:         0.95,
-			Domains:       []string{"mathematics", "geometry"},
-			Sociability:   0.4,
-			Influence:     0.8,
-		},
-		{
-			ID:            "agent-reviewer-1",
-			Name:          "Popper",
-			Role:          types.RoleReviewer,
-			ThinkingStyle: types.StyleAnalytical,
-			RiskTolerance: 0.4,
-			Creativity:    0.4,
-			Rigor:         0.9,
-			Domains:       []string{"philosophy", "methodology"},
-			Sociability:   0.5,
-			Influence:     0.6,
-		},
-		{
-			ID:            "agent-synthesizer-1",
-			Name:          "Darwin",
-			Role:          types.RoleSynthesizer,
-			ThinkingStyle: types.StyleLateral,
-			RiskTolerance: 0.7,
-			Creativity:    0.8,
-			Rigor:         0.6,
-			Domains:       []string{"biology", "evolution"},
-			Sociability:   0.6,
-			Influence:     0.7,
-		},
-		{
-			ID:            "agent-communicator-1",
-			Name:          "Feynman",
-			Role:          types.RoleCommunicator,
-			ThinkingStyle: types.StyleIntuitive,
-			RiskTolerance: 0.6,
-			Creativity:    0.85,
-			Rigor:         0.7,
-			Domains:       []string{"physics", "education"},
-			Sociability:   0.95,
-			Influence:     0.9,
-		},
-	}
 }

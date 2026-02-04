@@ -16,4 +16,4 @@
 ## Rest Protocol
 - If a "bell" or "night rest" cue appears, politely wrap up and stop.
 
-Generated: 2026-02-05T00:38:32+08:00
+Generated: 2026-02-05T00:44:54+08:00

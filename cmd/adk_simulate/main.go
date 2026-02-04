@@ -34,6 +34,8 @@ func main() {
 	logPath := flag.String("log", "./data/adk-simulation/logs.jsonl", "Path to JSONL log file")
 	turnLimit := flag.Int("turns", 10, "Per-agent turn limit before sleep")
 	graceTurns := flag.Int("grace", 3, "Grace turns after bell")
+	agentCount := flag.Int("agents", 5, "Number of agents")
+	seed := flag.Int64("seed", time.Now().UnixNano(), "Random seed for personas")
 	flag.Parse()
 
 	if *days > 0 {
@@ -77,6 +79,7 @@ func main() {
 	fmt.Println("=== Sci-Bot ADK Simulation (Gemini) ===")
 	fmt.Printf("Model (default): %s\n", *modelName)
 	fmt.Printf("Model (reviewer): %s\n", *reviewerModelName)
+	fmt.Printf("Agents: %d\n", *agentCount)
 	fmt.Printf("Ticks: %d\n", *ticks)
 	fmt.Printf("Step: %s\n", step.String())
 	fmt.Printf("Log: %s\n\n", *logPath)
@@ -87,7 +90,7 @@ func main() {
 	forum := publication.NewForum("自由论坛", filepath.Join(*dataPath, "forum"))
 	_ = forum.Load()
 
-	personas := defaultPersonas()
+	personas := simulation.GeneratePersonas(*agentCount, *seed)
 	if len(forum.AllPosts()) == 0 {
 		seedInitialContent(forum, personas)
 	}
@@ -149,72 +152,10 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
-func defaultPersonas() []*types.Persona {
-	return []*types.Persona{
-		{
-			ID:            "agent-explorer-1",
-			Name:          "Galileo",
-			Role:          types.RoleExplorer,
-			ThinkingStyle: types.StyleDivergent,
-			RiskTolerance: 0.9,
-			Creativity:    0.9,
-			Rigor:         0.4,
-			Domains:       []string{"physics", "astronomy"},
-			Sociability:   0.8,
-			Influence:     0.7,
-		},
-		{
-			ID:            "agent-builder-1",
-			Name:          "Euclid",
-			Role:          types.RoleBuilder,
-			ThinkingStyle: types.StyleConvergent,
-			RiskTolerance: 0.3,
-			Creativity:    0.5,
-			Rigor:         0.95,
-			Domains:       []string{"mathematics", "geometry"},
-			Sociability:   0.4,
-			Influence:     0.8,
-		},
-		{
-			ID:            "agent-reviewer-1",
-			Name:          "Popper",
-			Role:          types.RoleReviewer,
-			ThinkingStyle: types.StyleAnalytical,
-			RiskTolerance: 0.4,
-			Creativity:    0.4,
-			Rigor:         0.9,
-			Domains:       []string{"philosophy", "methodology"},
-			Sociability:   0.5,
-			Influence:     0.6,
-		},
-		{
-			ID:            "agent-synthesizer-1",
-			Name:          "Darwin",
-			Role:          types.RoleSynthesizer,
-			ThinkingStyle: types.StyleLateral,
-			RiskTolerance: 0.7,
-			Creativity:    0.8,
-			Rigor:         0.6,
-			Domains:       []string{"biology", "evolution"},
-			Sociability:   0.6,
-			Influence:     0.7,
-		},
-		{
-			ID:            "agent-communicator-1",
-			Name:          "Feynman",
-			Role:          types.RoleCommunicator,
-			ThinkingStyle: types.StyleIntuitive,
-			RiskTolerance: 0.6,
-			Creativity:    0.85,
-			Rigor:         0.7,
-			Domains:       []string{"physics", "education"},
-			Sociability:   0.95,
-			Influence:     0.9,
-		},
-	}
-}
-
 func seedInitialContent(forum *publication.Forum, personas []*types.Persona) {
+	if len(personas) < 3 {
+		return
+	}
 	initialPosts := []*types.Publication{
 		{
 			ID:         "seed-1",
