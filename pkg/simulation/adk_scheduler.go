@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -194,16 +195,16 @@ func (s *ADKScheduler) AddAgent(ctx context.Context, persona *types.Persona) err
 	}
 
 	s.runners[persona.ID] = &agentRunner{
-		persona:         persona,
-		state:           state,
-		runner:          r,
-		sessionID:       sess.Session.ID(),
-		appName:         "sci-bot",
-		session:         sessionService,
-		actionWeights:   buildActionWeights(persona),
-		graceRemaining:  s.graceTurns,
-		bellRung:        false,
-		turnCount:       0,
+		persona:        persona,
+		state:          state,
+		runner:         r,
+		sessionID:      sess.Session.ID(),
+		appName:        "sci-bot",
+		session:        sessionService,
+		actionWeights:  buildActionWeights(persona),
+		graceRemaining: s.graceTurns,
+		bellRung:       false,
+		turnCount:      0,
 	}
 
 	return nil
@@ -268,6 +269,14 @@ func buildInstruction(persona *types.Persona) string {
 3. 尊重其他科学家，但敢于质疑
 4. 建立有意义的学术关系
 5. 持续学习和分享知识
+
+## 发言规则
+- 只有在被点名、能提供新见解/证据、纠错或总结时才发言
+- 如果没有增量贡献，请简短说明继续观察
+
+## 创新导向
+- 在科研相关问题上主动创新、提出新假设或改进建议
+- 非科研话题可根据个人性格自由选择参与方式
 
 ## 摘要记忆（单条滚动沉淀）
 {agent_summary?}
@@ -405,16 +414,19 @@ func buildActionWeights(p *types.Persona) map[string]float64 {
 		"post":     0.2,
 		"interact": 0.2,
 		"review":   0.15,
+		"observe":  0.2,
 	}
 
 	if p != nil {
 		weights["browse"] += p.RiskTolerance*0.2 + p.Creativity*0.1
 		weights["read"] += p.Rigor * 0.1
-		weights["post"] += p.Creativity*0.2 + p.Influence*0.1
+		weights["post"] += p.Creativity*0.2 + p.Influence*0.1 - p.Rigor*0.05
 		weights["interact"] += p.Sociability * 0.3
 		weights["review"] += p.Rigor * 0.3
+		weights["observe"] += (1.0 - p.Sociability) * 0.2
 		if p.Role == types.RoleReviewer {
 			weights["review"] += 0.4
+			weights["observe"] += 0.1
 		}
 	}
 
@@ -483,6 +495,11 @@ func pickActionText(action string) string {
 			"阅读一篇帖子并投票。",
 			"对一篇讨论进行审慎评估，给出立场。",
 		})
+	case "observe":
+		return pickOne([]string{
+			"保持观察。如果没有新增贡献，请简短说明继续关注。",
+			"暂不发言，记录你认为重要的线索。",
+		})
 	default:
 		return "请保持待命。"
 	}
@@ -521,7 +538,7 @@ func (s *ADKScheduler) logEvent(ar *agentRunner, prompt actionPrompt, response s
 }
 
 func (s *ADKScheduler) updateAgentSummary(ctx context.Context, ar *agentRunner, promptText, responseText string) {
-	entry := buildSummaryEntry(promptText, responseText)
+	entry := buildSummaryEntry(s.simTime, promptText, responseText)
 	if entry == "" || ar.session == nil {
 		return
 	}
@@ -550,16 +567,20 @@ func (s *ADKScheduler) updateAgentSummary(ctx context.Context, ar *agentRunner, 
 	if err := ar.session.AppendEvent(ctx, sessResp.Session, event); err != nil {
 		log.Printf("Failed to append summary event: %v", err)
 	}
+
+	if err := s.appendDailyLog(ar.persona.ID, entry); err != nil {
+		log.Printf("Failed to append daily log: %v", err)
+	}
 }
 
-func buildSummaryEntry(promptText, responseText string) string {
+func buildSummaryEntry(at time.Time, promptText, responseText string) string {
 	promptText = strings.TrimSpace(promptText)
 	responseText = strings.TrimSpace(responseText)
 	if promptText == "" && responseText == "" {
 		return ""
 	}
 
-	entry := fmt.Sprintf("%s | prompt: %s", time.Now().Format(time.RFC3339), truncateRunes(promptText, 200))
+	entry := fmt.Sprintf("%s | prompt: %s", at.Format(time.RFC3339), truncateRunes(promptText, 200))
 	if responseText != "" {
 		entry = fmt.Sprintf("%s | reply: %s", entry, truncateRunes(responseText, 200))
 	}
@@ -585,6 +606,29 @@ func truncateRunes(s string, maxChars int) string {
 		return s
 	}
 	return string(runes[len(runes)-maxChars:])
+}
+
+func (s *ADKScheduler) appendDailyLog(agentID, entry string) error {
+	if entry == "" {
+		return nil
+	}
+	if s.dataPath == "" {
+		return nil
+	}
+	dateKey := s.simTime.Format("2006-01-02")
+	dir := filepath.Join(s.dataPath, "agents", agentID, "daily")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	path := filepath.Join(dir, dateKey+".md")
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(entry + "\n")
+	return err
 }
 
 // RunFor runs the simulation for n ticks.

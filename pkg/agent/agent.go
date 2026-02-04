@@ -166,6 +166,9 @@ func (a *Agent) handleMessage(msg *types.Message) {
 	// Update rolling summary memory
 	summaryEntry := a.buildSummaryEntry(msg, response)
 	a.Memory.UpdateSummary(summaryEntry, 2000)
+	if err := a.Memory.AppendDailyLog(summaryEntry); err != nil {
+		log.Printf("[%s] Daily log append failed: %v", a.Persona.Name, err)
+	}
 
 	if response != nil {
 		a.send(response)

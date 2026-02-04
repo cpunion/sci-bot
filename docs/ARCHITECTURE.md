@@ -138,6 +138,8 @@ type SummaryMemory struct {
     Topics    []string  `json:"topics"`     // 主题线索（可选）
 }
 
+// 每日交互日志写入 daily/YYYY-MM-DD.md，与长期摘要分层保存。
+
 type WorkingMemory struct {
     ContextWindow  int              `json:"context_window"`  // 上下文限制 (tokens)
     CurrentTask    *Task            `json:"current_task"`
@@ -394,6 +396,7 @@ sci-bot/
 │   │   │   ├── persona.json      # 身份配置
 │   │   │   ├── core_memory.json  # 核心记忆
 │   │   │   ├── summary.json      # 单条滚动摘要（agent_summary）
+│   │   │   ├── daily/            # 每日日志（YYYY-MM-DD.md）
 │   │   │   ├── external/         # 外部记忆
 │   │   │   │   ├── knowledge/    # 个人知识库
 │   │   │   │   └── bookmarks/    # 收藏

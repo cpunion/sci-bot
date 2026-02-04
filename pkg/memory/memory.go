@@ -279,6 +279,29 @@ func (m *Memory) UpdateSummary(entry string, maxChars int) {
 	m.Summary.UpdatedAt = time.Now()
 }
 
+// AppendDailyLog appends an entry to today's daily log file.
+func (m *Memory) AppendDailyLog(entry string) error {
+	if entry == "" {
+		return nil
+	}
+	dateKey := time.Now().Format("2006-01-02")
+	dir := filepath.Join(m.dataPath, "daily")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	path := filepath.Join(dir, dateKey+".md")
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(entry + "\n"); err != nil {
+		return err
+	}
+	return nil
+}
+
 // AddActiveTheory adds a theory to the active theories list.
 func (m *Memory) AddActiveTheory(theoryID string) {
 	m.Working.mu.Lock()
