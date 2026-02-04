@@ -40,6 +40,8 @@ type ADKScheduler struct {
 	// Configuration
 	model           model.LLM
 	modelForPersona func(*types.Persona) model.LLM
+	turnLimit       int
+	graceTurns      int
 
 	// Stats
 	ticks       int
@@ -53,6 +55,11 @@ type agentRunner struct {
 	sessionID string
 	appName   string
 	session   session.Service
+
+	actionWeights  map[string]float64
+	turnCount      int
+	bellRung       bool
+	graceRemaining int
 }
 
 // ADKSchedulerConfig configures the ADK scheduler.
@@ -60,16 +67,29 @@ type ADKSchedulerConfig struct {
 	DataPath        string
 	Model           model.LLM
 	ModelForPersona func(*types.Persona) model.LLM
+	TurnLimit       int
+	GraceTurns      int
 }
 
 // NewADKScheduler creates a new ADK-based scheduler.
 func NewADKScheduler(cfg ADKSchedulerConfig) *ADKScheduler {
 	rand.Seed(time.Now().UnixNano())
+	turnLimit := cfg.TurnLimit
+	if turnLimit <= 0 {
+		turnLimit = 10
+	}
+	graceTurns := cfg.GraceTurns
+	if graceTurns <= 0 {
+		graceTurns = 3
+	}
+
 	return &ADKScheduler{
 		runners:         make(map[string]*agentRunner),
 		dataPath:        cfg.DataPath,
 		model:           cfg.Model,
 		modelForPersona: cfg.ModelForPersona,
+		turnLimit:       turnLimit,
+		graceTurns:      graceTurns,
 		actionStats:     make(map[string]int),
 	}
 }
@@ -157,12 +177,16 @@ func (s *ADKScheduler) AddAgent(ctx context.Context, persona *types.Persona) err
 	}
 
 	s.runners[persona.ID] = &agentRunner{
-		persona:   persona,
-		state:     state,
-		runner:    r,
-		sessionID: sess.Session.ID(),
-		appName:   "sci-bot",
-		session:   sessionService,
+		persona:         persona,
+		state:           state,
+		runner:          r,
+		sessionID:       sess.Session.ID(),
+		appName:         "sci-bot",
+		session:         sessionService,
+		actionWeights:   buildActionWeights(persona),
+		graceRemaining:  s.graceTurns,
+		bellRung:        false,
+		turnCount:       0,
 	}
 
 	return nil
@@ -229,7 +253,10 @@ func buildInstruction(persona *types.Persona) string {
 5. 持续学习和分享知识
 
 ## 摘要记忆（单条滚动沉淀）
-{agent_summary?}%s`,
+{agent_summary?}
+
+## 作息规则
+- 当出现“晚钟/敲钟/夜间休息”的提示时，需礼貌收尾并立即休息，不再展开新话题。%s`,
 		persona.Name,
 		persona.Role,
 		persona.ThinkingStyle,
@@ -247,11 +274,8 @@ func (s *ADKScheduler) RunTick(ctx context.Context) error {
 
 	s.ticks++
 
-	// Select random agent
-	ids := make([]string, 0, len(s.runners))
-	for id := range s.runners {
-		ids = append(ids, id)
-	}
+	// Select random eligible agent
+	ids := s.eligibleAgentIDs()
 	if len(ids) == 0 {
 		return nil
 	}
@@ -260,7 +284,7 @@ func (s *ADKScheduler) RunTick(ctx context.Context) error {
 	ar := s.runners[selectedID]
 
 	// Generate a prompt based on random action
-	prompt := generateActionPrompt()
+	prompt := s.selectActionPrompt(ar)
 	s.actionStats[prompt.action]++
 
 	log.Printf("[Tick %d] %s: %s", s.ticks, ar.persona.Name, prompt.action)
@@ -302,16 +326,30 @@ type actionPrompt struct {
 	text   string
 }
 
-func generateActionPrompt() actionPrompt {
-	prompts := []actionPrompt{
-		{"browse", "请浏览论坛，看看有什么有趣的讨论。"},
-		{"browse", "查看最新的热门帖子。"},
-		{"read", "找一篇有趣的帖子阅读并评论。"},
-		{"post", "在论坛发表一个你最近思考的科学问题。"},
-		{"interact", "查看你的人际关系，并与一位科学家互动。"},
-		{"review", "阅读一篇帖子并投票。"},
+func (s *ADKScheduler) selectActionPrompt(ar *agentRunner) actionPrompt {
+	if ar == nil {
+		return actionPrompt{action: "idle", text: "请保持待命。"}
 	}
-	return prompts[rand.Intn(len(prompts))]
+
+	if ar.turnCount >= s.turnLimit {
+		if !ar.bellRung {
+			ar.bellRung = true
+			ar.graceRemaining = s.graceTurns
+			ar.turnCount++
+			return actionPrompt{action: "sleep", text: "夜间敲钟：今天到此为止，请简短收尾并休息。"}
+		}
+		if ar.graceRemaining <= 0 {
+			return actionPrompt{action: "sleep", text: "夜已深，请立即休息，不再展开新话题。"}
+		}
+		ar.graceRemaining--
+		ar.turnCount++
+		return actionPrompt{action: "sleep", text: "夜间敲钟已响，请礼貌结束并去休息。"}
+	}
+
+	action := weightedSelect(ar.actionWeights)
+	promptText := pickActionText(action)
+	ar.turnCount++
+	return actionPrompt{action: action, text: promptText}
 }
 
 func truncate(s string, maxLen int) string {
@@ -319,6 +357,117 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "..."
+}
+
+func (s *ADKScheduler) eligibleAgentIDs() []string {
+	ids := make([]string, 0, len(s.runners))
+	for id, ar := range s.runners {
+		if ar == nil {
+			continue
+		}
+		if ar.bellRung && ar.graceRemaining <= 0 {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+func buildActionWeights(p *types.Persona) map[string]float64 {
+	weights := map[string]float64{
+		"browse":   0.3,
+		"read":     0.3,
+		"post":     0.2,
+		"interact": 0.2,
+		"review":   0.15,
+	}
+
+	if p != nil {
+		weights["browse"] += p.RiskTolerance*0.2 + p.Creativity*0.1
+		weights["read"] += p.Rigor * 0.1
+		weights["post"] += p.Creativity*0.2 + p.Influence*0.1
+		weights["interact"] += p.Sociability * 0.3
+		weights["review"] += p.Rigor * 0.3
+		if p.Role == types.RoleReviewer {
+			weights["review"] += 0.4
+		}
+	}
+
+	for k, v := range weights {
+		jitter := 0.8 + rand.Float64()*0.4
+		weights[k] = v * jitter
+	}
+
+	return weights
+}
+
+func weightedSelect(weights map[string]float64) string {
+	if len(weights) == 0 {
+		return "browse"
+	}
+	total := 0.0
+	for _, w := range weights {
+		if w > 0 {
+			total += w
+		}
+	}
+	if total == 0 {
+		return "browse"
+	}
+	r := rand.Float64() * total
+	for k, w := range weights {
+		if w <= 0 {
+			continue
+		}
+		r -= w
+		if r <= 0 {
+			return k
+		}
+	}
+	for k := range weights {
+		return k
+	}
+	return "browse"
+}
+
+func pickActionText(action string) string {
+	switch action {
+	case "browse":
+		return pickOne([]string{
+			"请浏览论坛，看看有什么有趣的讨论。",
+			"查看最新的热门帖子。",
+			"看看与你研究领域相关的新讨论。",
+		})
+	case "read":
+		return pickOne([]string{
+			"找一篇有趣的帖子阅读并评论。",
+			"阅读一篇与你领域相关的帖子，给出简短反馈。",
+		})
+	case "post":
+		return pickOne([]string{
+			"在论坛发表一个你最近思考的科学问题。",
+			"发布一个简短的研究想法或假设，邀请讨论。",
+		})
+	case "interact":
+		return pickOne([]string{
+			"查看你的人际关系，并与一位科学家互动。",
+			"选择一位你信任的同行进行学术交流。",
+		})
+	case "review":
+		return pickOne([]string{
+			"阅读一篇帖子并投票。",
+			"对一篇讨论进行审慎评估，给出立场。",
+		})
+	default:
+		return "请保持待命。"
+	}
+}
+
+func pickOne(items []string) string {
+	if len(items) == 0 {
+		return ""
+	}
+	return items[rand.Intn(len(items))]
 }
 
 func (s *ADKScheduler) updateAgentSummary(ctx context.Context, ar *agentRunner, promptText, responseText string) {
