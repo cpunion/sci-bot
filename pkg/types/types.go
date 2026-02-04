@@ -27,8 +27,8 @@ const (
 
 // Persona defines the unique identity and characteristics of an agent.
 type Persona struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID   string    `json:"id"`
+	Name string    `json:"name"`
 	Role AgentRole `json:"role"`
 
 	// Cognitive style - ensures diversity
@@ -79,14 +79,14 @@ const (
 
 // Message represents a communication unit in the network.
 type Message struct {
-	ID         string      `json:"id"`
-	Type       MessageType `json:"type"`
-	From       string      `json:"from"`
-	To         []string    `json:"to"`           // Can be specific agents or topics
-	Content    string      `json:"content"`      // Message content
-	InReplyTo  string      `json:"in_reply_to"`  // ID of message being replied to
-	Visibility Visibility  `json:"visibility"`
-	Timestamp  time.Time   `json:"timestamp"`
+	ID         string         `json:"id"`
+	Type       MessageType    `json:"type"`
+	From       string         `json:"from"`
+	To         []string       `json:"to"`          // Can be specific agents or topics
+	Content    string         `json:"content"`     // Message content
+	InReplyTo  string         `json:"in_reply_to"` // ID of message being replied to
+	Visibility Visibility     `json:"visibility"`
+	Timestamp  time.Time      `json:"timestamp"`
 	Metadata   map[string]any `json:"metadata,omitempty"`
 }
 
@@ -107,9 +107,9 @@ const (
 type ConfidenceLevel string
 
 const (
-	LevelTheorem    ConfidenceLevel = "theorem"    // Proven
-	LevelHypothesis ConfidenceLevel = "hypothesis" // Under verification
-	LevelConjecture ConfidenceLevel = "conjecture" // Preliminary
+	LevelTheorem     ConfidenceLevel = "theorem"     // Proven
+	LevelHypothesis  ConfidenceLevel = "hypothesis"  // Under verification
+	LevelConjecture  ConfidenceLevel = "conjecture"  // Preliminary
 	LevelInspiration ConfidenceLevel = "inspiration" // Initial idea
 )
 
@@ -123,28 +123,28 @@ type Axiom struct {
 
 // AxiomSystem represents a complete axiom system.
 type AxiomSystem struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Axioms      []Axiom  `json:"axioms"`
-	Parent      string   `json:"parent,omitempty"` // Derived from which system
-	Differences []string `json:"differences"`      // Differences from parent
-	CreatedBy   string   `json:"created_by"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Axioms      []Axiom   `json:"axioms"`
+	Parent      string    `json:"parent,omitempty"` // Derived from which system
+	Differences []string  `json:"differences"`      // Differences from parent
+	CreatedBy   string    `json:"created_by"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
 // Definition represents a formal definition of a concept.
 type Definition struct {
-	Term        string `json:"term"`
-	Definition  string `json:"definition"`
-	FormalForm  string `json:"formal_form,omitempty"`
+	Term       string `json:"term"`
+	Definition string `json:"definition"`
+	FormalForm string `json:"formal_form,omitempty"`
 }
 
 // Theorem represents a proven statement.
 type Theorem struct {
-	ID         string `json:"id"`
-	Statement  string `json:"statement"`
-	Proof      string `json:"proof"`
+	ID         string   `json:"id"`
+	Statement  string   `json:"statement"`
+	Proof      string   `json:"proof"`
 	References []string `json:"references"`
 }
 
@@ -166,10 +166,10 @@ type Conjecture struct {
 
 // Theory represents a complete theory in the network.
 type Theory struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	Authors     []string `json:"authors"`
-	Abstract    string `json:"abstract"`
+	ID       string   `json:"id"`
+	Title    string   `json:"title"`
+	Authors  []string `json:"authors"`
+	Abstract string   `json:"abstract"`
 
 	// Axiom foundation
 	AxiomSystem  string  `json:"axiom_system"`  // Based on which axiom system
@@ -196,29 +196,72 @@ type Theory struct {
 
 // Review represents a peer review of a theory.
 type Review struct {
-	ID         string    `json:"id"`
-	TheoryID   string    `json:"theory_id"`
-	ReviewerID string    `json:"reviewer_id"`
-	Verdict    string    `json:"verdict"` // approve, reject, revise
-	Comments   string    `json:"comments"`
-	IssuesFound []string `json:"issues_found"`
-	Suggestions []string `json:"suggestions"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID          string    `json:"id"`
+	TheoryID    string    `json:"theory_id"`
+	ReviewerID  string    `json:"reviewer_id"`
+	Verdict     string    `json:"verdict"` // approve, reject, revise
+	Comments    string    `json:"comments"`
+	IssuesFound []string  `json:"issues_found"`
+	Suggestions []string  `json:"suggestions"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // ConnectionType defines the strength of a social connection.
 type ConnectionType string
 
 const (
-	ConnectionClose       ConnectionType = "close"       // Close connection (max 15)
-	ConnectionActive      ConnectionType = "active"      // Active connection (max 150)
+	ConnectionClose        ConnectionType = "close"        // Close connection (max 15)
+	ConnectionActive       ConnectionType = "active"       // Active connection (max 150)
 	ConnectionAcquaintance ConnectionType = "acquaintance" // Acquaintance (max 500)
 )
 
-// Connection represents a social connection between agents.
+// RelationshipState defines the relationship status between agents.
+type RelationshipState string
+
+const (
+	RelationNew        RelationshipState = "new"        // 新认识
+	RelationDiscussing RelationshipState = "discussing" // 讨论中
+	RelationTrusted    RelationshipState = "trusted"    // 信任
+	RelationEstranged  RelationshipState = "estranged"  // 生疏
+	RelationForgotten  RelationshipState = "forgotten"  // 遗忘
+)
+
+// Relationship represents a dynamic relationship between agents.
+type Relationship struct {
+	PeerID           string            `json:"peer_id"`
+	PeerName         string            `json:"peer_name"`
+	State            RelationshipState `json:"state"`
+	TrustScore       float64           `json:"trust_score"` // 0-1, affects visibility
+	Familiarity      float64           `json:"familiarity"` // 0-1, how well they know each other
+	LastInteraction  time.Time         `json:"last_interaction"`
+	InteractionCount int               `json:"interaction_count"`
+	SharedTopics     []string          `json:"shared_topics"`
+}
+
+// KnowledgeLevel defines how well an agent knows a theory.
+type KnowledgeLevel string
+
+const (
+	KnowledgeHeard    KnowledgeLevel = "heard"    // 听说过
+	KnowledgeLearned  KnowledgeLevel = "learned"  // 习得
+	KnowledgeMastered KnowledgeLevel = "mastered" // 掌握
+)
+
+// KnowledgeItem represents an agent's knowledge of a theory.
+type KnowledgeItem struct {
+	TheoryID     string         `json:"theory_id"`
+	TheoryTitle  string         `json:"theory_title"`
+	Level        KnowledgeLevel `json:"level"`
+	LearnedAt    time.Time      `json:"learned_at"`
+	LastReviewed time.Time      `json:"last_reviewed"`
+	Confidence   float64        `json:"confidence"` // 0-1, how confident in this knowledge
+	Source       string         `json:"source"`     // Where they learned it from
+}
+
+// Connection represents a social connection between agents (legacy, use Relationship instead).
 type Connection struct {
 	PeerID       string         `json:"peer_id"`
-	Strength     float64        `json:"strength"`      // Relationship strength 0-1
+	Strength     float64        `json:"strength"` // Relationship strength 0-1
 	Type         ConnectionType `json:"type"`
 	SharedTopics []string       `json:"shared_topics"` // Common interests
 	LastContact  time.Time      `json:"last_contact"`
@@ -237,3 +280,33 @@ const (
 	MaxActiveConnections = 150
 	MaxAcquaintances     = 500
 )
+
+// ChannelType defines publication channel types.
+type ChannelType string
+
+const (
+	ChannelJournal ChannelType = "journal" // 权威杂志，需审核
+	ChannelForum   ChannelType = "forum"   // 草根论坛，自由发布
+)
+
+// Publication represents a published work.
+type Publication struct {
+	ID          string      `json:"id"`
+	Channel     ChannelType `json:"channel"`
+	TheoryID    string      `json:"theory_id,omitempty"`
+	AuthorID    string      `json:"author_id"`
+	AuthorName  string      `json:"author_name"`
+	Title       string      `json:"title"`
+	Content     string      `json:"content"`
+	Abstract    string      `json:"abstract"`
+	PublishedAt time.Time   `json:"published_at"`
+
+	// Journal specific
+	Reviewers []string `json:"reviewers,omitempty"`
+	Approved  bool     `json:"approved,omitempty"`
+
+	// Stats
+	Views     int `json:"views"`
+	Citations int `json:"citations"`
+	Replies   int `json:"replies"`
+}
