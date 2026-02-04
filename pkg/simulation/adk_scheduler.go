@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -50,6 +51,8 @@ type agentRunner struct {
 	state     *pkgagent.AgentState
 	runner    *runner.Runner
 	sessionID string
+	appName   string
+	session   session.Service
 }
 
 // ADKSchedulerConfig configures the ADK scheduler.
@@ -145,6 +148,9 @@ func (s *ADKScheduler) AddAgent(ctx context.Context, persona *types.Persona) err
 		AppName:   "sci-bot",
 		UserID:    persona.ID,
 		SessionID: persona.ID + "-session",
+		State: map[string]any{
+			"agent_summary": "",
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
@@ -155,6 +161,8 @@ func (s *ADKScheduler) AddAgent(ctx context.Context, persona *types.Persona) err
 		state:     state,
 		runner:    r,
 		sessionID: sess.Session.ID(),
+		appName:   "sci-bot",
+		session:   sessionService,
 	}
 
 	return nil
@@ -218,7 +226,10 @@ func buildInstruction(persona *types.Persona) string {
 2. 发表有价值、有深度的观点
 3. 尊重其他科学家，但敢于质疑
 4. 建立有意义的学术关系
-5. 持续学习和分享知识%s`,
+5. 持续学习和分享知识
+
+## 摘要记忆（单条滚动沉淀）
+{agent_summary?}%s`,
 		persona.Name,
 		persona.Role,
 		persona.ThinkingStyle,
@@ -262,6 +273,7 @@ func (s *ADKScheduler) RunTick(ctx context.Context) error {
 		},
 	}
 
+	var responseText string
 	for event, err := range ar.runner.Run(ctx, ar.persona.ID, ar.sessionID, msg, agent.RunConfig{}) {
 		if err != nil {
 			log.Printf("Agent error: %v", err)
@@ -271,6 +283,7 @@ func (s *ADKScheduler) RunTick(ctx context.Context) error {
 			for _, part := range event.Content.Parts {
 				if part.Text != "" {
 					log.Printf("  [%s] %s", ar.persona.Name, truncate(part.Text, 100))
+					responseText += part.Text
 				}
 				if part.FunctionCall != nil {
 					log.Printf("  [%s] Calling: %s", ar.persona.Name, part.FunctionCall.Name)
@@ -278,6 +291,8 @@ func (s *ADKScheduler) RunTick(ctx context.Context) error {
 			}
 		}
 	}
+
+	s.updateAgentSummary(ctx, ar, prompt.text, responseText)
 
 	return nil
 }
@@ -304,6 +319,73 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "..."
+}
+
+func (s *ADKScheduler) updateAgentSummary(ctx context.Context, ar *agentRunner, promptText, responseText string) {
+	entry := buildSummaryEntry(promptText, responseText)
+	if entry == "" || ar.session == nil {
+		return
+	}
+
+	sessResp, err := ar.session.Get(ctx, &session.GetRequest{
+		AppName:   ar.appName,
+		UserID:    ar.persona.ID,
+		SessionID: ar.sessionID,
+	})
+	if err != nil {
+		log.Printf("Failed to load session for summary: %v", err)
+		return
+	}
+
+	current := ""
+	if v, err := sessResp.Session.State().Get("agent_summary"); err == nil {
+		if str, ok := v.(string); ok {
+			current = str
+		}
+	}
+
+	updated := appendSummary(current, entry, 2000)
+	event := session.NewEvent("summary-update")
+	event.Author = ar.persona.ID
+	event.Actions.StateDelta["agent_summary"] = updated
+	if err := ar.session.AppendEvent(ctx, sessResp.Session, event); err != nil {
+		log.Printf("Failed to append summary event: %v", err)
+	}
+}
+
+func buildSummaryEntry(promptText, responseText string) string {
+	promptText = strings.TrimSpace(promptText)
+	responseText = strings.TrimSpace(responseText)
+	if promptText == "" && responseText == "" {
+		return ""
+	}
+
+	entry := fmt.Sprintf("%s | prompt: %s", time.Now().Format(time.RFC3339), truncateRunes(promptText, 200))
+	if responseText != "" {
+		entry = fmt.Sprintf("%s | reply: %s", entry, truncateRunes(responseText, 200))
+	}
+	return entry
+}
+
+func appendSummary(current, entry string, maxChars int) string {
+	if entry == "" {
+		return current
+	}
+	if current == "" {
+		return truncateRunes(entry, maxChars)
+	}
+	return truncateRunes(current+"\n"+entry, maxChars)
+}
+
+func truncateRunes(s string, maxChars int) string {
+	if maxChars <= 0 {
+		return s
+	}
+	runes := []rune(s)
+	if len(runes) <= maxChars {
+		return s
+	}
+	return string(runes[len(runes)-maxChars:])
 }
 
 // RunFor runs the simulation for n ticks.
