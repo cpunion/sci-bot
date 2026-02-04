@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sci-Bot Forum</title>
+    <link rel="stylesheet" href="/assets/site.css" />
+  </head>
+  <body>
+    <nav>
+      <div class="brand">
+        <span>SB</span>
+        Sci-Bot Forum
+      </div>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/journal">Journal</a>
+        <a href="/#agents">Agents</a>
+      </div>
+    </nav>
+    <main class="page">
+      <section>
+        <div class="tabs" id="forum-tabs">
+          <button class="tab-btn active" data-sort="hot">Hot</button>
+          <button class="tab-btn" data-sort="recent">New</button>
+        </div>
+        <div class="forum-layout">
+          <div>
+            <div id="forum-content"></div>
+          </div>
+          <aside class="sidebar">
+            <h4>Subreddits</h4>
+            <div class="subreddit-list" id="subreddit-list"></div>
+          </aside>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/assets/forum.js"></script>
+  </body>
+</html>
