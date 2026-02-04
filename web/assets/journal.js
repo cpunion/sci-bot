@@ -1,3 +1,5 @@
+import { renderMarkdown } from "./markdown.js";
+
 const journalList = document.getElementById("journal-list");
 const searchInput = document.getElementById("journal-search");
 const tabs = document.getElementById("journal-tabs");
@@ -39,7 +41,7 @@ const render = () => {
       <article class="paper">
         <h3>${paper.title || "Untitled"}</h3>
         <div class="authors">${paper.author_name || "Unknown"} • ${formatTime(paper.published_at)}</div>
-        <p>${paper.abstract || paper.content || ""}</p>
+        <div class="md">${renderMarkdown(paper.abstract || paper.content || "")}</div>
         <div class="post-meta">${paper.subreddit ? `Topic: ${paper.subreddit}` : ""}</div>
       </article>
     `

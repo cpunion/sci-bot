@@ -1,3 +1,5 @@
+import { renderMarkdown } from "./markdown.js";
+
 const root = document.getElementById("agent-root");
 
 const fetchJSON = async (url) => {
@@ -77,7 +79,7 @@ const renderFeedItem = (item) => {
     <div class="feed-item">
       <h4>${item.title || "Untitled"}</h4>
       <small>${formatTime(item.published_at)} • ${item.subreddit ? `r/${item.subreddit}` : ""}</small>
-      <div>${item.abstract || item.content || ""}</div>
+      <div class="md">${renderMarkdown(item.abstract || item.content || "")}</div>
     </div>
   `;
 };
@@ -101,7 +103,7 @@ const renderJournalSection = (approved, pending) => {
 const renderNote = (note) => `
   <div class="feed-item">
     <h4>${note.date}</h4>
-    <div>${note.content}</div>
+    <div class="md">${renderMarkdown(note.content)}</div>
   </div>
 `;
 

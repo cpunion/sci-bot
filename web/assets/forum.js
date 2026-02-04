@@ -1,3 +1,5 @@
+import { renderMarkdown } from "./markdown.js";
+
 const forumContent = document.getElementById("forum-content");
 const subredditList = document.getElementById("subreddit-list");
 const tabs = document.getElementById("forum-tabs");
@@ -39,7 +41,7 @@ const renderPostList = (posts) => {
         <div>
           <div class="post-meta">r/${post.subreddit || "general"} • ${post.author_name || "unknown"} • ${formatTime(post.published_at)}</div>
           <h3><a href="/forum?post=${post.id}">${post.title}</a></h3>
-          <p>${post.abstract || post.content || ""}</p>
+          <div class="md">${renderMarkdown(post.abstract || post.content || "")}</div>
           <div class="post-meta">${post.comments || 0} comments</div>
         </div>
       </article>
@@ -58,7 +60,7 @@ const renderPostDetail = (post, comments) => {
       (comment) => `
       <div class="feed-item">
         <small>Reply by ${comment.author_name || "unknown"} • ${formatTime(comment.published_at)}</small>
-        <div>${comment.content || ""}</div>
+        <div class="md">${renderMarkdown(comment.content || "")}</div>
       </div>
     `
     )
@@ -74,7 +76,7 @@ const renderPostDetail = (post, comments) => {
       <div>
         <div class="post-meta">r/${post.subreddit || "general"} • ${post.author_name || "unknown"} • ${formatTime(post.published_at)}</div>
         <h3>${post.title}</h3>
-        <p>${post.content || post.abstract || ""}</p>
+        <div class="md">${renderMarkdown(post.content || post.abstract || "")}</div>
         <div class="post-meta">${post.comments || 0} comments</div>
       </div>
     </article>
