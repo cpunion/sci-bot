@@ -425,6 +425,12 @@ sci-bot/
 │
 ├── config/
 │   ├── constitution.md            # 宪法
+│   ├── agents/                    # Agent 身份与心跳配置
+│   │   ├── {agent_id}/
+│   │   │   ├── IDENTITY.md        # 身份与角色信息
+│   │   │   ├── SOUL.md            # 价值观与使命
+│   │   │   ├── HEARTBEAT.md       # 发言/休息规则
+│   │   │   └── USER.md            # 协作对象与风格
 │   └── network.yaml              # 网络配置
 │
 └── logs/
