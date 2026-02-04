@@ -20,6 +20,13 @@ type CoreMemory struct {
 	Experiences []Experience      `json:"experiences"`
 }
 
+// SummaryMemory represents a rolling, single-entry memory snapshot.
+type SummaryMemory struct {
+	Snapshot  string    `json:"snapshot"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Topics    []string  `json:"topics"`
+}
+
 // Experience represents a significant past event.
 type Experience struct {
 	ID         string    `json:"id"`
@@ -67,6 +74,7 @@ type Bookmark struct {
 type Memory struct {
 	AgentID  string          `json:"agent_id"`
 	Core     *CoreMemory     `json:"core"`
+	Summary  *SummaryMemory  `json:"summary"`
 	Working  *WorkingMemory  `json:"working"`
 	External *ExternalMemory `json:"external"`
 
@@ -81,6 +89,10 @@ func NewMemory(agentID string, dataPath string, contextWindow int) *Memory {
 		Core: &CoreMemory{
 			Beliefs:     make(map[string]string),
 			Experiences: make([]Experience, 0),
+		},
+		Summary: &SummaryMemory{
+			Snapshot: "",
+			Topics:   make([]string, 0),
 		},
 		Working: &WorkingMemory{
 			ContextWindow:  contextWindow,
@@ -183,6 +195,16 @@ func (m *Memory) Save() error {
 		return err
 	}
 
+	// Save summary memory
+	summaryPath := filepath.Join(m.dataPath, "summary.json")
+	summaryData, err := json.MarshalIndent(m.Summary, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(summaryPath, summaryData, 0644); err != nil {
+		return err
+	}
+
 	// Save external memory
 	extPath := filepath.Join(m.dataPath, "external_memory.json")
 	extData, err := json.MarshalIndent(m.External, "", "  ")
@@ -198,6 +220,14 @@ func (m *Memory) Load() error {
 	corePath := filepath.Join(m.dataPath, "core_memory.json")
 	if data, err := os.ReadFile(corePath); err == nil {
 		if err := json.Unmarshal(data, m.Core); err != nil {
+			return err
+		}
+	}
+
+	// Load summary memory
+	summaryPath := filepath.Join(m.dataPath, "summary.json")
+	if data, err := os.ReadFile(summaryPath); err == nil {
+		if err := json.Unmarshal(data, m.Summary); err != nil {
 			return err
 		}
 	}
@@ -227,6 +257,28 @@ func (m *Memory) SetScratchPad(content string) {
 	m.Working.ScratchPad = content
 }
 
+// UpdateSummary appends a new entry to the rolling summary.
+func (m *Memory) UpdateSummary(entry string, maxChars int) {
+	if entry == "" {
+		return
+	}
+	if maxChars <= 0 {
+		maxChars = 2000
+	}
+	if m.Summary == nil {
+		m.Summary = &SummaryMemory{}
+	}
+
+	if m.Summary.Snapshot == "" {
+		m.Summary.Snapshot = entry
+	} else {
+		m.Summary.Snapshot = m.Summary.Snapshot + "\n" + entry
+	}
+
+	m.Summary.Snapshot = trimToLastRunes(m.Summary.Snapshot, maxChars)
+	m.Summary.UpdatedAt = time.Now()
+}
+
 // AddActiveTheory adds a theory to the active theories list.
 func (m *Memory) AddActiveTheory(theoryID string) {
 	m.Working.mu.Lock()
@@ -244,13 +296,30 @@ func (m *Memory) GetContextSummary() map[string]any {
 	m.Working.mu.RLock()
 	defer m.Working.mu.RUnlock()
 
+	summary := ""
+	if m.Summary != nil {
+		summary = m.Summary.Snapshot
+	}
+
 	return map[string]any{
 		"identity":        m.Core.Identity,
 		"values":          m.Core.Values,
 		"skills":          m.Core.Skills,
+		"summary":         summary,
 		"current_task":    m.Working.CurrentTask,
 		"active_theories": m.Working.ActiveTheories,
 		"subscriptions":   m.External.Subscriptions,
 		"recent_messages": len(m.Working.RecentMessages),
 	}
+}
+
+func trimToLastRunes(s string, maxChars int) string {
+	if maxChars <= 0 {
+		return s
+	}
+	runes := []rune(s)
+	if len(runes) <= maxChars {
+		return s
+	}
+	return string(runes[len(runes)-maxChars:])
 }

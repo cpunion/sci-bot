@@ -174,7 +174,10 @@ func (a *Agent) baseSystemPrompt() string {
 %v
 
 ### 技能
-%v`,
+%v
+
+### 摘要记忆（单条滚动沉淀）
+%s`,
 		a.Persona.Name,
 		a.Persona.Role,
 		a.Persona.ThinkingStyle,
@@ -182,5 +185,6 @@ func (a *Agent) baseSystemPrompt() string {
 		memCtx["identity"],
 		memCtx["values"],
 		memCtx["skills"],
+		memCtx["summary"],
 	)
 }

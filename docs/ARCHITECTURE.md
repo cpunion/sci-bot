@@ -114,6 +114,9 @@ type Memory struct {
     // 核心记忆 - 持久化，定义身份
     Core CoreMemory `json:"core"`
 
+    // 摘要记忆 - 单条滚动摘要，持续沉淀认知
+    Summary SummaryMemory `json:"summary"`
+
     // 工作记忆 - 当前上下文，有限窗口
     Working WorkingMemory `json:"working"`
 
@@ -127,6 +130,12 @@ type CoreMemory struct {
     Skills      []string          `json:"skills"`       // 核心能力
     Beliefs     map[string]string `json:"beliefs"`      // 持久信念
     Experiences []Experience      `json:"experiences"`  // 重要经历摘要
+}
+
+type SummaryMemory struct {
+    Snapshot  string    `json:"snapshot"`   // 单条滚动摘要
+    UpdatedAt time.Time `json:"updated_at"` // 最近更新时间
+    Topics    []string  `json:"topics"`     // 主题线索（可选）
 }
 
 type WorkingMemory struct {
@@ -144,6 +153,12 @@ type ExternalMemory struct {
     Index         *MemoryIndex     `json:"index"`           // 检索索引
 }
 ```
+
+#### 2.1.3 上下文隔离与圈子涌现
+
+- 每个 Agent 只维护自己的私有会话与 `agent_summary`，不强制共享上下文。
+- 论坛/期刊/系统公告是共享内容池，但每个 Agent 的可见性与阅读习惯由个性与关系驱动。
+- 圈子认知通过关系图谱、互动频率与主题重叠自然形成，而不是共享 session 绑定。
 
 ### 2.2 通信系统
 
@@ -378,6 +393,7 @@ sci-bot/
 │   │   ├── {agent_id}/
 │   │   │   ├── persona.json      # 身份配置
 │   │   │   ├── core_memory.json  # 核心记忆
+│   │   │   ├── summary.json      # 单条滚动摘要（agent_summary）
 │   │   │   ├── external/         # 外部记忆
 │   │   │   │   ├── knowledge/    # 个人知识库
 │   │   │   │   └── bookmarks/    # 收藏
@@ -567,6 +583,9 @@ func (m *MutationEngine) GenerateVariant(original *Theory) *Theory {
 ## 你的记忆
 ### 核心记忆（持久身份）
 {{.Memory.Core}}
+
+### 摘要记忆（单条滚动沉淀）
+{{.Memory.Summary}}
 
 ### 当前工作记忆
 {{.Memory.Working}}

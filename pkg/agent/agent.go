@@ -162,6 +162,11 @@ func (a *Agent) handleMessage(msg *types.Message) {
 
 	// Generate response based on role
 	response := a.processMessage(msg)
+
+	// Update rolling summary memory
+	summaryEntry := a.buildSummaryEntry(msg, response)
+	a.Memory.UpdateSummary(summaryEntry, 2000)
+
 	if response != nil {
 		a.send(response)
 	}
@@ -330,6 +335,26 @@ func (a *Agent) createResponse(original *types.Message, content string) *types.M
 		Visibility: original.Visibility,
 		Timestamp:  time.Now(),
 	}
+}
+
+func (a *Agent) buildSummaryEntry(msg *types.Message, response *types.Message) string {
+	timestamp := time.Now().Format(time.RFC3339)
+	entry := fmt.Sprintf("%s | from %s: %s", timestamp, msg.From, truncateText(msg.Content, 200))
+	if response != nil && response.Content != "" {
+		entry = fmt.Sprintf("%s | reply: %s", entry, truncateText(response.Content, 200))
+	}
+	return entry
+}
+
+func truncateText(s string, maxChars int) string {
+	if maxChars <= 0 {
+		return s
+	}
+	runes := []rune(s)
+	if len(runes) <= maxChars {
+		return s
+	}
+	return string(runes[:maxChars]) + "..."
 }
 
 // Connect establishes a connection with another agent.
