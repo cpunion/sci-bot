@@ -289,6 +289,23 @@ const (
 	ChannelForum   ChannelType = "forum"   // 草根论坛，自由发布
 )
 
+// Subreddit defines forum subject areas (like Reddit subreddits).
+type Subreddit string
+
+const (
+	SubMathematics Subreddit = "mathematics" // 数学
+	SubPhysics     Subreddit = "physics"     // 物理
+	SubPhilosophy  Subreddit = "philosophy"  // 哲学
+	SubBiology     Subreddit = "biology"     // 生物学
+	SubComputing   Subreddit = "computing"   // 计算机科学
+	SubGeneral     Subreddit = "general"     // 通用讨论
+)
+
+// AllSubreddits returns all available subreddits.
+func AllSubreddits() []Subreddit {
+	return []Subreddit{SubMathematics, SubPhysics, SubPhilosophy, SubBiology, SubComputing, SubGeneral}
+}
+
 // Publication represents a published work.
 type Publication struct {
 	ID          string      `json:"id"`
@@ -301,12 +318,27 @@ type Publication struct {
 	Abstract    string      `json:"abstract"`
 	PublishedAt time.Time   `json:"published_at"`
 
+	// Forum specific - Reddit style
+	Subreddit Subreddit `json:"subreddit,omitempty"`
+	Upvotes   int       `json:"upvotes"`
+	Downvotes int       `json:"downvotes"`
+	Score     int       `json:"score"`               // Upvotes - Downvotes
+	ParentID  string    `json:"parent_id,omitempty"` // For replies/comments
+	IsComment bool      `json:"is_comment,omitempty"`
+
 	// Journal specific
 	Reviewers []string `json:"reviewers,omitempty"`
 	Approved  bool     `json:"approved,omitempty"`
 
 	// Stats
-	Views     int `json:"views"`
-	Citations int `json:"citations"`
-	Replies   int `json:"replies"`
+	Views    int `json:"views"`
+	Comments int `json:"comments"` // Number of comments/replies
+}
+
+// Vote represents a vote on a publication.
+type Vote struct {
+	VoterID  string    `json:"voter_id"`
+	PostID   string    `json:"post_id"`
+	IsUpvote bool      `json:"is_upvote"`
+	VotedAt  time.Time `json:"voted_at"`
 }

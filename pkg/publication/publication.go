@@ -156,12 +156,13 @@ func (j *Journal) Load() error {
 	return json.Unmarshal(data, j)
 }
 
-// Forum represents a grassroots discussion channel.
+// Forum represents a grassroots discussion channel (Reddit-style).
 type Forum struct {
 	mu sync.RWMutex
 
 	Name     string                        `json:"name"`
 	Posts    map[string]*types.Publication `json:"posts"`
+	Votes    map[string]*types.Vote        `json:"votes"` // key: "voterID:postID"
 	dataPath string
 }
 
@@ -170,6 +171,7 @@ func NewForum(name, dataPath string) *Forum {
 	return &Forum{
 		Name:     name,
 		Posts:    make(map[string]*types.Publication),
+		Votes:    make(map[string]*types.Vote),
 		dataPath: dataPath,
 	}
 }
@@ -185,9 +187,147 @@ func (f *Forum) Post(pub *types.Publication) error {
 	pub.Channel = types.ChannelForum
 	pub.PublishedAt = time.Now()
 	pub.Approved = true // Forum posts don't need approval
+	pub.Upvotes = 1     // Author's implicit upvote
+	pub.Score = 1       // Author's implicit upvote
+
+	if pub.Subreddit == "" {
+		pub.Subreddit = types.SubGeneral
+	}
 
 	f.Posts[pub.ID] = pub
 	return nil
+}
+
+// Comment adds a comment to a post.
+func (f *Forum) Comment(parentID string, comment *types.Publication) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	parent, ok := f.Posts[parentID]
+	if !ok {
+		return fmt.Errorf("parent post not found: %s", parentID)
+	}
+
+	if comment.ID == "" {
+		comment.ID = fmt.Sprintf("comment-%d", time.Now().UnixNano())
+	}
+	comment.Channel = types.ChannelForum
+	comment.PublishedAt = time.Now()
+	comment.Approved = true
+	comment.ParentID = parentID
+	comment.IsComment = true
+	comment.Subreddit = parent.Subreddit
+	comment.Score = 1
+
+	f.Posts[comment.ID] = comment
+	parent.Comments++
+
+	return nil
+}
+
+// Upvote upvotes a post.
+func (f *Forum) Upvote(voterID, postID string) error {
+	return f.vote(voterID, postID, true)
+}
+
+// Downvote downvotes a post.
+func (f *Forum) Downvote(voterID, postID string) error {
+	return f.vote(voterID, postID, false)
+}
+
+// vote handles voting logic.
+func (f *Forum) vote(voterID, postID string, isUpvote bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	post, ok := f.Posts[postID]
+	if !ok {
+		return fmt.Errorf("post not found: %s", postID)
+	}
+
+	voteKey := voterID + ":" + postID
+	existingVote, hasVoted := f.Votes[voteKey]
+
+	if hasVoted {
+		// Already voted - update or remove vote
+		if existingVote.IsUpvote == isUpvote {
+			// Same vote, remove it
+			if isUpvote {
+				post.Upvotes--
+			} else {
+				post.Downvotes--
+			}
+			delete(f.Votes, voteKey)
+		} else {
+			// Changing vote
+			if isUpvote {
+				post.Downvotes--
+				post.Upvotes++
+			} else {
+				post.Upvotes--
+				post.Downvotes++
+			}
+			existingVote.IsUpvote = isUpvote
+			existingVote.VotedAt = time.Now()
+		}
+	} else {
+		// New vote
+		if isUpvote {
+			post.Upvotes++
+		} else {
+			post.Downvotes++
+		}
+		f.Votes[voteKey] = &types.Vote{
+			VoterID:  voterID,
+			PostID:   postID,
+			IsUpvote: isUpvote,
+			VotedAt:  time.Now(),
+		}
+	}
+
+	post.Score = post.Upvotes - post.Downvotes
+	return nil
+}
+
+// GetBySubreddit returns posts from a specific subreddit.
+func (f *Forum) GetBySubreddit(sub types.Subreddit, limit int) []*types.Publication {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	posts := make([]*types.Publication, 0)
+	for _, p := range f.Posts {
+		if p.Subreddit == sub && !p.IsComment {
+			posts = append(posts, p)
+		}
+	}
+
+	// Sort by score descending (hot posts)
+	f.sortByScore(posts)
+
+	if limit > len(posts) {
+		limit = len(posts)
+	}
+	return posts[:limit]
+}
+
+// GetHot returns hot posts (highest score) across all subreddits.
+func (f *Forum) GetHot(limit int) []*types.Publication {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	posts := make([]*types.Publication, 0)
+	for _, p := range f.Posts {
+		if !p.IsComment {
+			posts = append(posts, p)
+		}
+	}
+
+	f.sortByScore(posts)
+
+	if limit > len(posts) {
+		limit = len(posts)
+	}
+	return posts[:limit]
 }
 
 // GetRecent returns recent posts, most recent first.
@@ -195,13 +335,14 @@ func (f *Forum) GetRecent(limit int) []*types.Publication {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
-	// Collect all posts
 	posts := make([]*types.Publication, 0, len(f.Posts))
 	for _, p := range f.Posts {
-		posts = append(posts, p)
+		if !p.IsComment {
+			posts = append(posts, p)
+		}
 	}
 
-	// Sort by publish time descending (simple bubble sort for now)
+	// Sort by publish time descending
 	for i := 0; i < len(posts)-1; i++ {
 		for j := i + 1; j < len(posts); j++ {
 			if posts[j].PublishedAt.After(posts[i].PublishedAt) {
@@ -214,6 +355,33 @@ func (f *Forum) GetRecent(limit int) []*types.Publication {
 		limit = len(posts)
 	}
 	return posts[:limit]
+}
+
+// GetComments returns comments for a post.
+func (f *Forum) GetComments(postID string) []*types.Publication {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	comments := make([]*types.Publication, 0)
+	for _, p := range f.Posts {
+		if p.ParentID == postID {
+			comments = append(comments, p)
+		}
+	}
+
+	f.sortByScore(comments)
+	return comments
+}
+
+// sortByScore sorts posts by score descending.
+func (f *Forum) sortByScore(posts []*types.Publication) {
+	for i := 0; i < len(posts)-1; i++ {
+		for j := i + 1; j < len(posts); j++ {
+			if posts[j].Score > posts[i].Score {
+				posts[i], posts[j] = posts[j], posts[i]
+			}
+		}
+	}
 }
 
 // GetByAuthor returns posts by a specific author.
@@ -243,15 +411,6 @@ func (f *Forum) IncrementViews(postID string) {
 	defer f.mu.Unlock()
 	if post, ok := f.Posts[postID]; ok {
 		post.Views++
-	}
-}
-
-// Reply adds a reply count (simplified - just counts).
-func (f *Forum) Reply(postID string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if post, ok := f.Posts[postID]; ok {
-		post.Replies++
 	}
 }
 
@@ -285,17 +444,45 @@ func (f *Forum) Load() error {
 		return err
 	}
 
-	return json.Unmarshal(data, f)
+	if err := json.Unmarshal(data, f); err != nil {
+		return err
+	}
+
+	// Ensure maps are initialized
+	if f.Posts == nil {
+		f.Posts = make(map[string]*types.Publication)
+	}
+	if f.Votes == nil {
+		f.Votes = make(map[string]*types.Vote)
+	}
+
+	return nil
 }
 
-// AllPosts returns all posts.
+// AllPosts returns all top-level posts (not comments).
 func (f *Forum) AllPosts() []*types.Publication {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	result := make([]*types.Publication, 0, len(f.Posts))
 	for _, p := range f.Posts {
-		result = append(result, p)
+		if !p.IsComment {
+			result = append(result, p)
+		}
 	}
 	return result
+}
+
+// GetSubredditStats returns stats for each subreddit.
+func (f *Forum) GetSubredditStats() map[types.Subreddit]int {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	stats := make(map[types.Subreddit]int)
+	for _, p := range f.Posts {
+		if !p.IsComment {
+			stats[p.Subreddit]++
+		}
+	}
+	return stats
 }

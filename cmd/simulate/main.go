@@ -177,6 +177,21 @@ func main() {
 		len(journal.GetApproved()), len(journal.GetPending()))
 	fmt.Printf("  Forum: %d posts\n", len(forum.AllPosts()))
 
+	// Subreddit stats
+	fmt.Println("\nSubreddit Activity:")
+	subStats := forum.GetSubredditStats()
+	for _, sub := range types.AllSubreddits() {
+		if count := subStats[sub]; count > 0 {
+			fmt.Printf("  r/%s: %d posts\n", sub, count)
+		}
+	}
+
+	// Hot posts
+	fmt.Println("\nHot Posts (Top 5):")
+	for i, post := range forum.GetHot(5) {
+		fmt.Printf("  %d. [%+d] %s by %s\n", i+1, post.Score, post.Title, post.AuthorName)
+	}
+
 	// Save all state
 	if err := sched.Save(); err != nil {
 		log.Printf("Warning: Failed to save state: %v", err)
@@ -194,6 +209,7 @@ func seedInitialContent(forum *publication.Forum, personas []*types.Persona) {
 			Title:      "关于自由落体的思考",
 			Content:    "如果在真空中，羽毛和铁球会以相同速度下落吗？",
 			Abstract:   "对亚里士多德物理学的质疑",
+			Subreddit:  types.SubPhysics,
 		},
 		{
 			ID:         "seed-2",
@@ -202,6 +218,7 @@ func seedInitialContent(forum *publication.Forum, personas []*types.Persona) {
 			Title:      "几何学第一原理",
 			Content:    "过两点有且仅有一条直线。这是不证自明的公理。",
 			Abstract:   "欧几里得几何的基础",
+			Subreddit:  types.SubMathematics,
 		},
 		{
 			ID:         "seed-3",
@@ -210,6 +227,25 @@ func seedInitialContent(forum *publication.Forum, personas []*types.Persona) {
 			Title:      "科学理论的可证伪性",
 			Content:    "一个理论只有当它能够被证伪时，才是科学的。",
 			Abstract:   "科学与非科学的划界",
+			Subreddit:  types.SubPhilosophy,
+		},
+		{
+			ID:         "seed-4",
+			AuthorID:   personas[3].ID,
+			AuthorName: personas[3].Name,
+			Title:      "物种起源的假说",
+			Content:    "自然选择可以解释物种的多样性吗？",
+			Abstract:   "进化论的雏形",
+			Subreddit:  types.SubBiology,
+		},
+		{
+			ID:         "seed-5",
+			AuthorID:   personas[4].ID,
+			AuthorName: personas[4].Name,
+			Title:      "量子电动力学入门",
+			Content:    "用简单的语言解释光和物质的相互作用。",
+			Abstract:   "QED 的直觉理解",
+			Subreddit:  types.SubPhysics,
 		},
 	}
 
@@ -217,5 +253,5 @@ func seedInitialContent(forum *publication.Forum, personas []*types.Persona) {
 		forum.Post(post)
 	}
 
-	fmt.Printf("Seeded %d initial forum posts\n", len(initialPosts))
+	fmt.Printf("Seeded %d initial forum posts across subreddits\n", len(initialPosts))
 }
