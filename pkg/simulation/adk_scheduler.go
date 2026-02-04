@@ -42,6 +42,9 @@ type ADKScheduler struct {
 	modelForPersona func(*types.Persona) model.LLM
 	turnLimit       int
 	graceTurns      int
+	logger          EventLogger
+	simTime         time.Time
+	simStep         time.Duration
 
 	// Stats
 	ticks       int
@@ -69,6 +72,9 @@ type ADKSchedulerConfig struct {
 	ModelForPersona func(*types.Persona) model.LLM
 	TurnLimit       int
 	GraceTurns      int
+	Logger          EventLogger
+	SimStep         time.Duration
+	StartTime       time.Time
 }
 
 // NewADKScheduler creates a new ADK-based scheduler.
@@ -82,6 +88,14 @@ func NewADKScheduler(cfg ADKSchedulerConfig) *ADKScheduler {
 	if graceTurns <= 0 {
 		graceTurns = 3
 	}
+	simStep := cfg.SimStep
+	if simStep <= 0 {
+		simStep = time.Hour
+	}
+	startTime := cfg.StartTime
+	if startTime.IsZero() {
+		startTime = time.Now()
+	}
 
 	return &ADKScheduler{
 		runners:         make(map[string]*agentRunner),
@@ -90,6 +104,9 @@ func NewADKScheduler(cfg ADKSchedulerConfig) *ADKScheduler {
 		modelForPersona: cfg.ModelForPersona,
 		turnLimit:       turnLimit,
 		graceTurns:      graceTurns,
+		logger:          cfg.Logger,
+		simTime:         startTime,
+		simStep:         simStep,
 		actionStats:     make(map[string]int),
 	}
 }
@@ -298,6 +315,8 @@ func (s *ADKScheduler) RunTick(ctx context.Context) error {
 	}
 
 	var responseText string
+	toolCalls := make([]string, 0)
+	toolResponses := make([]string, 0)
 	for event, err := range ar.runner.Run(ctx, ar.persona.ID, ar.sessionID, msg, agent.RunConfig{}) {
 		if err != nil {
 			log.Printf("Agent error: %v", err)
@@ -311,12 +330,18 @@ func (s *ADKScheduler) RunTick(ctx context.Context) error {
 				}
 				if part.FunctionCall != nil {
 					log.Printf("  [%s] Calling: %s", ar.persona.Name, part.FunctionCall.Name)
+					toolCalls = append(toolCalls, part.FunctionCall.Name)
+				}
+				if part.FunctionResponse != nil {
+					toolResponses = append(toolResponses, part.FunctionResponse.Name)
 				}
 			}
 		}
 	}
 
 	s.updateAgentSummary(ctx, ar, prompt.text, responseText)
+	s.logEvent(ar, prompt, responseText, toolCalls, toolResponses)
+	s.simTime = s.simTime.Add(s.simStep)
 
 	return nil
 }
@@ -470,6 +495,31 @@ func pickOne(items []string) string {
 	return items[rand.Intn(len(items))]
 }
 
+func (s *ADKScheduler) logEvent(ar *agentRunner, prompt actionPrompt, response string, toolCalls, toolResponses []string) {
+	if s.logger == nil || ar == nil {
+		return
+	}
+	ev := EventLog{
+		Timestamp:      time.Now(),
+		SimTime:        s.simTime,
+		Tick:           s.ticks,
+		AgentID:        ar.persona.ID,
+		AgentName:      ar.persona.Name,
+		Action:         prompt.action,
+		Prompt:         truncateRunes(prompt.text, 500),
+		Response:       truncateRunes(response, 500),
+		ToolCalls:      toolCalls,
+		ToolResponses:  toolResponses,
+		TurnCount:      ar.turnCount,
+		BellRung:       ar.bellRung,
+		GraceRemaining: ar.graceRemaining,
+		Sleeping:       prompt.action == "sleep",
+	}
+	if err := s.logger.LogEvent(ev); err != nil {
+		log.Printf("Failed to log event: %v", err)
+	}
+}
+
 func (s *ADKScheduler) updateAgentSummary(ctx context.Context, ar *agentRunner, promptText, responseText string) {
 	entry := buildSummaryEntry(promptText, responseText)
 	if entry == "" || ar.session == nil {
@@ -569,6 +619,12 @@ func (s *ADKScheduler) Save() error {
 	if s.forum != nil {
 		if err := s.forum.Save(); err != nil {
 			return fmt.Errorf("failed to save forum: %w", err)
+		}
+	}
+
+	if s.logger != nil {
+		if err := s.logger.Close(); err != nil {
+			return fmt.Errorf("failed to close logger: %w", err)
 		}
 	}
 

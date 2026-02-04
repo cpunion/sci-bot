@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -25,10 +26,19 @@ func main() {
 	reviewerDefault := envOr("GOOGLE_REVIEWER_MODEL", "gemini-3-pro-preview")
 
 	ticks := flag.Int("ticks", 50, "Number of simulation ticks")
+	days := flag.Int("days", 0, "Simulated days (overrides ticks when > 0)")
+	step := flag.Duration("step", time.Hour, "Simulated time per tick")
 	dataPath := flag.String("data", "./data/adk-simulation", "Data directory")
 	modelName := flag.String("model", modelDefault, "Gemini model for general agents")
 	reviewerModelName := flag.String("reviewer-model", reviewerDefault, "Gemini model for reviewer agents")
+	logPath := flag.String("log", "./data/adk-simulation/logs.jsonl", "Path to JSONL log file")
+	turnLimit := flag.Int("turns", 10, "Per-agent turn limit before sleep")
+	graceTurns := flag.Int("grace", 3, "Grace turns after bell")
 	flag.Parse()
+
+	if *days > 0 {
+		*ticks = int(math.Ceil(float64(time.Duration(*days)*24*time.Hour) / float64(*step)))
+	}
 
 	ctx := context.Background()
 
@@ -59,10 +69,17 @@ func main() {
 		}
 	}
 
+	logger, err := simulation.NewJSONLLogger(*logPath)
+	if err != nil {
+		log.Fatalf("Failed to create logger: %v", err)
+	}
+
 	fmt.Println("=== Sci-Bot ADK Simulation (Gemini) ===")
 	fmt.Printf("Model (default): %s\n", *modelName)
 	fmt.Printf("Model (reviewer): %s\n", *reviewerModelName)
-	fmt.Printf("Ticks: %d\n\n", *ticks)
+	fmt.Printf("Ticks: %d\n", *ticks)
+	fmt.Printf("Step: %s\n", step.String())
+	fmt.Printf("Log: %s\n\n", *logPath)
 
 	journal := publication.NewJournal("科学前沿", filepath.Join(*dataPath, "journal"))
 	_ = journal.Load()
@@ -76,8 +93,13 @@ func main() {
 	}
 
 	sched := simulation.NewADKScheduler(simulation.ADKSchedulerConfig{
-		DataPath: *dataPath,
-		Model:    defaultModel,
+		DataPath:   *dataPath,
+		Model:      defaultModel,
+		Logger:     logger,
+		SimStep:    *step,
+		StartTime:  time.Now(),
+		TurnLimit:  *turnLimit,
+		GraceTurns: *graceTurns,
 		ModelForPersona: func(p *types.Persona) model.LLM {
 			if p.Role == types.RoleReviewer {
 				return reviewerModel
@@ -109,6 +131,12 @@ func main() {
 
 	if err := sched.Save(); err != nil {
 		log.Printf("Warning: failed to save state: %v", err)
+	}
+
+	if summary, err := analyzeLog(*logPath); err == nil {
+		printSummary(summary)
+	} else {
+		log.Printf("Log analysis skipped: %v", err)
 	}
 
 	fmt.Println("\nState saved to:", *dataPath)
