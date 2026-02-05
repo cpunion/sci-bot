@@ -434,6 +434,9 @@ sci-bot/
 │   ├── workflow/                  # 发表流程工作流（草案/共识/审稿）
 │   │   └── workflow.json
 │   │
+│   ├── forum/                     # 论坛数据
+│   │   └── forum.json            # 帖子/评论/投票/线程摘要缓存
+│   │
 │   └── network/                   # 网络状态
 │       ├── social_graph.json     # 全局社交图
 │       └── consensus/            # 共识记录

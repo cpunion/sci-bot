@@ -179,6 +179,207 @@ func (ft *ForumToolset) ReadPostTool() (tool.Tool, error) {
 	}, handler)
 }
 
+// --- Thread Digest Tools ---
+
+// ThreadDigestInput is the input for reading a thread digest.
+type ThreadDigestInput struct {
+	PostID         string `json:"post_id"`
+	MaxNewComments int    `json:"max_new_comments,omitempty"`
+}
+
+// ThreadCommentDelta is a delta comment after the cached summary.
+type ThreadCommentDelta struct {
+	ID             string `json:"id"`
+	ParentID       string `json:"parent_id,omitempty"`
+	Depth          int    `json:"depth"`
+	AuthorName     string `json:"author_name"`
+	Content        string `json:"content"`
+	ParentExcerpt  string `json:"parent_excerpt,omitempty"`
+	ParentOversize bool   `json:"parent_oversize,omitempty"`
+}
+
+// ThreadDigestOutput is the output of reading a thread digest.
+type ThreadDigestOutput struct {
+	PostID           string               `json:"post_id"`
+	Title            string               `json:"title"`
+	AuthorName       string               `json:"author_name"`
+	Subreddit        string               `json:"subreddit"`
+	Score            int                  `json:"score"`
+	CommentCount     int                  `json:"comment_count"`
+	Summary          string               `json:"summary,omitempty"`
+	SummaryUpdatedAt string               `json:"summary_updated_at,omitempty"`
+	NeedsSummary     bool                 `json:"needs_summary,omitempty"`
+	ResummaryReason  string               `json:"resummary_reason,omitempty"`
+	Content          string               `json:"content,omitempty"`
+	Comments         []CommentSummary     `json:"comments,omitempty"`
+	NewComments      []ThreadCommentDelta `json:"new_comments,omitempty"`
+	Truncated        bool                 `json:"truncated,omitempty"`
+	ThreadLong       bool                 `json:"thread_long,omitempty"`
+}
+
+// ThreadDigestTool creates the digest tool used for multi-post aggregation.
+func (ft *ForumToolset) ThreadDigestTool() (tool.Tool, error) {
+	handler := func(ctx tool.Context, input ThreadDigestInput) (ThreadDigestOutput, error) {
+		if input.PostID == "" {
+			return ThreadDigestOutput{}, fmt.Errorf("missing post_id")
+		}
+
+		rootID := ft.forum.ResolveRootPostID(input.PostID)
+		if rootID == "" {
+			return ThreadDigestOutput{}, fmt.Errorf("post not found: %s", input.PostID)
+		}
+
+		post := ft.forum.Get(rootID)
+		if post == nil {
+			return ThreadDigestOutput{}, fmt.Errorf("post not found: %s", rootID)
+		}
+
+		comments := ft.forum.GetThreadComments(rootID)
+		commentCount := len(comments)
+		totalChars := threadCharCount(post, comments)
+		threadLong := isLongThread(post, totalChars, commentCount)
+
+		summary := ft.forum.GetThreadSummary(rootID)
+		out := ThreadDigestOutput{
+			PostID:       rootID,
+			Title:        post.Title,
+			AuthorName:   post.AuthorName,
+			Subreddit:    string(post.Subreddit),
+			Score:        post.Score,
+			CommentCount: commentCount,
+			ThreadLong:   threadLong,
+		}
+
+		if summary == nil {
+			if threadLong {
+				out.NeedsSummary = true
+				out.ResummaryReason = "missing_summary_long_thread"
+				return out, nil
+			}
+			// For short threads, return full content (no summary).
+			out.Content = post.Content
+			out.Comments = buildCommentSummaries(ft.forum, comments, rootID)
+			return out, nil
+		}
+
+		out.Summary = summary.Summary
+		if !summary.UpdatedAt.IsZero() {
+			out.SummaryUpdatedAt = summary.UpdatedAt.Format(time.RFC3339)
+		}
+
+		if summary.PostHash != "" && summary.PostHash != ft.forum.PostHash(rootID) {
+			out.NeedsSummary = true
+			out.ResummaryReason = "post_content_changed"
+		}
+
+		newComments := filterNewComments(comments, summary.LastCommentAt)
+		maxNew := input.MaxNewComments
+		if maxNew <= 0 || maxNew > 30 {
+			maxNew = 20
+		}
+		if len(newComments) > maxNew {
+			out.Truncated = true
+			out.NeedsSummary = true
+			if out.ResummaryReason == "" {
+				out.ResummaryReason = "too_many_new_comments"
+			}
+			newComments = newComments[len(newComments)-maxNew:]
+		}
+
+		newDeltas := make([]ThreadCommentDelta, 0, len(newComments))
+		for _, c := range newComments {
+			depth := computeCommentDepth(ft.forum, c, rootID)
+			delta := ThreadCommentDelta{
+				ID:         c.ID,
+				ParentID:   c.ParentID,
+				Depth:      depth,
+				AuthorName: c.AuthorName,
+				Content:    c.Content,
+			}
+
+			if c.ParentID != "" && c.ParentID != rootID {
+				parent := ft.forum.Get(c.ParentID)
+				if parent != nil {
+					delta.ParentExcerpt = truncateString(parent.Content, parentExcerptLimit)
+					if len(parent.Content) > parentExcerptLimit {
+						delta.ParentOversize = true
+						out.NeedsSummary = true
+						if out.ResummaryReason == "" {
+							out.ResummaryReason = "reply_to_large_parent"
+						}
+					}
+				}
+			}
+
+			if len(c.Content) > newCommentContentLimit {
+				delta.Content = truncateString(c.Content, newCommentContentLimit)
+				out.NeedsSummary = true
+				if out.ResummaryReason == "" {
+					out.ResummaryReason = "new_comment_too_long"
+				}
+			}
+
+			newDeltas = append(newDeltas, delta)
+		}
+
+		out.NewComments = newDeltas
+		return out, nil
+	}
+
+	return functiontool.New(functiontool.Config{
+		Name:        "get_thread_digest",
+		Description: "多帖汇总专用：返回线程摘要（如有）与摘要之后的新回复；若线程过长且无摘要，会标记 needs_summary。",
+	}, handler)
+}
+
+// SaveThreadSummaryInput is the input for saving a thread summary.
+type SaveThreadSummaryInput struct {
+	PostID  string `json:"post_id"`
+	Summary string `json:"summary"`
+}
+
+// SaveThreadSummaryOutput is the output of saving a thread summary.
+type SaveThreadSummaryOutput struct {
+	PostID           string `json:"post_id"`
+	SummaryUpdatedAt string `json:"summary_updated_at"`
+	CommentCount     int    `json:"comment_count"`
+	LastCommentID    string `json:"last_comment_id,omitempty"`
+}
+
+// SaveThreadSummaryTool stores a cached summary for a thread.
+func (ft *ForumToolset) SaveThreadSummaryTool() (tool.Tool, error) {
+	handler := func(ctx tool.Context, input SaveThreadSummaryInput) (SaveThreadSummaryOutput, error) {
+		if input.PostID == "" {
+			return SaveThreadSummaryOutput{}, fmt.Errorf("missing post_id")
+		}
+		if strings.TrimSpace(input.Summary) == "" {
+			return SaveThreadSummaryOutput{}, fmt.Errorf("missing summary")
+		}
+
+		ts, err := ft.forum.SaveThreadSummary(input.PostID, input.Summary)
+		if err != nil {
+			return SaveThreadSummaryOutput{}, err
+		}
+
+		updatedAt := ""
+		if !ts.UpdatedAt.IsZero() {
+			updatedAt = ts.UpdatedAt.Format(time.RFC3339)
+		}
+
+		return SaveThreadSummaryOutput{
+			PostID:           ts.PostID,
+			SummaryUpdatedAt: updatedAt,
+			CommentCount:     ts.CommentCount,
+			LastCommentID:    ts.LastCommentID,
+		}, nil
+	}
+
+	return functiontool.New(functiontool.Config{
+		Name:        "save_thread_summary",
+		Description: "保存线程摘要缓存（用于多帖汇总）。仅在你完成该线程的总结后调用。",
+	}, handler)
+}
+
 // --- Mentions Tool ---
 
 // BrowseMentionsInput is the input for browsing mentions.
@@ -430,6 +631,16 @@ func (ft *ForumToolset) AllTools(agentName string) ([]tool.Tool, error) {
 		return nil, err
 	}
 
+	digestTool, err := ft.ThreadDigestTool()
+	if err != nil {
+		return nil, err
+	}
+
+	saveSummaryTool, err := ft.SaveThreadSummaryTool()
+	if err != nil {
+		return nil, err
+	}
+
 	mentionTool, err := ft.BrowseMentionsTool()
 	if err != nil {
 		return nil, err
@@ -453,6 +664,8 @@ func (ft *ForumToolset) AllTools(agentName string) ([]tool.Tool, error) {
 	return []tool.Tool{
 		browseTool,
 		readTool,
+		digestTool,
+		saveSummaryTool,
 		mentionTool,
 		createTool,
 		voteTool,
@@ -516,6 +729,74 @@ func computeCommentDepth(forum *publication.Forum, comment *types.Publication, r
 		return 1
 	}
 	return depth
+}
+
+const (
+	longPostChars          = 2000
+	longThreadChars        = 6000
+	longThreadComments     = 18
+	parentExcerptLimit     = 180
+	newCommentContentLimit = 1200
+)
+
+func threadCharCount(post *types.Publication, comments []*types.Publication) int {
+	if post == nil {
+		return 0
+	}
+	total := len(post.Title) + len(post.Abstract) + len(post.Content)
+	for _, c := range comments {
+		total += len(c.Content)
+	}
+	return total
+}
+
+func isLongThread(post *types.Publication, totalChars, commentCount int) bool {
+	if post == nil {
+		return false
+	}
+	if len(post.Content) >= longPostChars {
+		return true
+	}
+	if commentCount >= longThreadComments {
+		return true
+	}
+	return totalChars >= longThreadChars
+}
+
+func buildCommentSummaries(forum *publication.Forum, comments []*types.Publication, rootID string) []CommentSummary {
+	out := make([]CommentSummary, 0, len(comments))
+	for _, c := range comments {
+		depth := computeCommentDepth(forum, c, rootID)
+		out = append(out, CommentSummary{
+			ID:         c.ID,
+			Content:    c.Content,
+			AuthorName: c.AuthorName,
+			Score:      c.Score,
+			ParentID:   c.ParentID,
+			Depth:      depth,
+		})
+	}
+	return out
+}
+
+func filterNewComments(comments []*types.Publication, since time.Time) []*types.Publication {
+	out := make([]*types.Publication, 0)
+	for _, c := range comments {
+		if since.IsZero() || c.PublishedAt.After(since) {
+			out = append(out, c)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].PublishedAt.Before(out[j].PublishedAt)
+	})
+	return out
+}
+
+func truncateString(input string, max int) string {
+	if max <= 0 || len(input) <= max {
+		return input
+	}
+	return input[:max] + "..."
 }
 
 type scoredPost struct {

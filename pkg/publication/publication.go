@@ -4,8 +4,10 @@ package publication
 import (
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -160,19 +162,21 @@ func (j *Journal) Load() error {
 type Forum struct {
 	mu sync.RWMutex
 
-	Name     string                        `json:"name"`
-	Posts    map[string]*types.Publication `json:"posts"`
-	Votes    map[string]*types.Vote        `json:"votes"` // key: "voterID:postID"
-	dataPath string
+	Name      string                        `json:"name"`
+	Posts     map[string]*types.Publication `json:"posts"`
+	Votes     map[string]*types.Vote        `json:"votes"`               // key: "voterID:postID"
+	Summaries map[string]*types.ThreadSummary `json:"summaries,omitempty"` // key: root post id
+	dataPath  string
 }
 
 // NewForum creates a new forum.
 func NewForum(name, dataPath string) *Forum {
 	return &Forum{
-		Name:     name,
-		Posts:    make(map[string]*types.Publication),
-		Votes:    make(map[string]*types.Vote),
-		dataPath: dataPath,
+		Name:      name,
+		Posts:     make(map[string]*types.Publication),
+		Votes:     make(map[string]*types.Vote),
+		Summaries: make(map[string]*types.ThreadSummary),
+		dataPath:  dataPath,
 	}
 }
 
@@ -497,6 +501,9 @@ func (f *Forum) Load() error {
 	if f.Votes == nil {
 		f.Votes = make(map[string]*types.Vote)
 	}
+	if f.Summaries == nil {
+		f.Summaries = make(map[string]*types.ThreadSummary)
+	}
 
 	return nil
 }
@@ -539,4 +546,105 @@ func (f *Forum) GetSubredditStats() map[types.Subreddit]int {
 		}
 	}
 	return stats
+}
+
+// ResolveRootPostID returns the root post ID for a publication (post or comment).
+func (f *Forum) ResolveRootPostID(pubID string) string {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	pub, ok := f.Posts[pubID]
+	if !ok || pub == nil {
+		return ""
+	}
+	if !pub.IsComment {
+		return pub.ID
+	}
+	seen := map[string]struct{}{pub.ID: {}}
+	parentID := pub.ParentID
+	for parentID != "" {
+		if _, ok := seen[parentID]; ok {
+			break
+		}
+		seen[parentID] = struct{}{}
+		parent, ok := f.Posts[parentID]
+		if !ok || parent == nil {
+			break
+		}
+		if !parent.IsComment {
+			return parent.ID
+		}
+		parentID = parent.ParentID
+	}
+	return ""
+}
+
+// GetThreadSummary returns a cached summary for a thread if available.
+func (f *Forum) GetThreadSummary(postID string) *types.ThreadSummary {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	if f.Summaries == nil {
+		return nil
+	}
+	return f.Summaries[postID]
+}
+
+// SaveThreadSummary stores a summary for a thread and updates metadata.
+func (f *Forum) SaveThreadSummary(postID, summary string) (*types.ThreadSummary, error) {
+	rootID := f.ResolveRootPostID(postID)
+	if rootID == "" {
+		return nil, fmt.Errorf("post not found: %s", postID)
+	}
+
+	root := f.Get(rootID)
+	comments := f.GetThreadComments(rootID)
+	lastCommentAt := time.Time{}
+	lastCommentID := ""
+	for _, c := range comments {
+		if c.PublishedAt.After(lastCommentAt) {
+			lastCommentAt = c.PublishedAt
+			lastCommentID = c.ID
+		}
+	}
+
+	ts := &types.ThreadSummary{
+		PostID:        rootID,
+		Summary:       strings.TrimSpace(summary),
+		UpdatedAt:     time.Now(),
+		LastCommentAt: lastCommentAt,
+		LastCommentID: lastCommentID,
+		CommentCount:  len(comments),
+		PostHash:      hashPostContent(root),
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.Summaries == nil {
+		f.Summaries = make(map[string]*types.ThreadSummary)
+	}
+	f.Summaries[rootID] = ts
+	return ts, nil
+}
+
+// PostHash returns a stable hash for a post's core content.
+func (f *Forum) PostHash(postID string) string {
+	rootID := f.ResolveRootPostID(postID)
+	if rootID == "" {
+		return ""
+	}
+	root := f.Get(rootID)
+	return hashPostContent(root)
+}
+
+func hashPostContent(post *types.Publication) string {
+	if post == nil {
+		return ""
+	}
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(post.Title))
+	_, _ = h.Write([]byte("\n"))
+	_, _ = h.Write([]byte(post.Abstract))
+	_, _ = h.Write([]byte("\n"))
+	_, _ = h.Write([]byte(post.Content))
+	return fmt.Sprintf("%x", h.Sum64())
 }

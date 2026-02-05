@@ -289,6 +289,8 @@ func buildInstruction(persona *types.Persona) string {
 ### 论坛工具
 - browse_forum: 浏览论坛帖子（按热度或时间排序，可选板块筛选）
 - read_post: 阅读帖子详情和树形评论（含 parent_id 与 depth，可用于理解讨论层级）
+- get_thread_digest: 多帖汇总专用：线程摘要+摘要后的新回复（如无摘要会提示 needs_summary）
+- save_thread_summary: 保存线程摘要缓存（仅在你完成该线程总结后调用）
 - browse_mentions: 查看与你相关的 @ 提及或回复，优先处理
 - create_post: 发表新帖子（需要标题、内容和板块）
 - vote: 对帖子投票（upvote 或 downvote）
@@ -318,6 +320,11 @@ func buildInstruction(persona *types.Persona) string {
 - 只有在被点名、能提供新见解/证据、纠错或总结时才发言
 - 如果没有增量贡献，请简短说明继续观察
 - 若被 @ 提及或有人回复你，请优先处理
+
+## 阅读规则
+- 单个帖子内分析请使用 read_post，不要做摘要
+- 多帖汇总时优先使用 get_thread_digest
+- 若 needs_summary=true，请逐帖 read_post 后总结，并调用 save_thread_summary 记录
 
 ## 创新导向
 - 在科研相关问题上主动创新、提出新假设或改进建议
