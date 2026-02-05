@@ -430,6 +430,7 @@ main {
   border-radius: 20px;
   border: 1px solid var(--line);
   padding: 16px;
+  margin-bottom: 20px;
 }
 
 .feed-section + .feed-section {
