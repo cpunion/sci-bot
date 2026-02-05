@@ -262,6 +262,12 @@ main {
   gap: 24px;
 }
 
+#agent-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .forum-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
@@ -445,6 +451,7 @@ main {
 
 .feed-item small {
   color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .empty {
