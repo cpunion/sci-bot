@@ -373,6 +373,48 @@ func (f *Forum) GetComments(postID string) []*types.Publication {
 	return comments
 }
 
+// GetThreadComments returns all comments under a root post, including nested replies.
+func (f *Forum) GetThreadComments(rootID string) []*types.Publication {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	if _, ok := f.Posts[rootID]; !ok {
+		return nil
+	}
+
+	related := make(map[string]struct{})
+	related[rootID] = struct{}{}
+
+	changed := true
+	for changed {
+		changed = false
+		for _, p := range f.Posts {
+			if !p.IsComment {
+				continue
+			}
+			if _, ok := related[p.ID]; ok {
+				continue
+			}
+			if _, ok := related[p.ParentID]; ok {
+				related[p.ID] = struct{}{}
+				changed = true
+			}
+		}
+	}
+
+	comments := make([]*types.Publication, 0)
+	for id := range related {
+		if id == rootID {
+			continue
+		}
+		if p, ok := f.Posts[id]; ok && p.IsComment {
+			comments = append(comments, p)
+		}
+	}
+
+	return comments
+}
+
 // sortByScore sorts posts by score descending.
 func (f *Forum) sortByScore(posts []*types.Publication) {
 	for i := 0; i < len(posts)-1; i++ {

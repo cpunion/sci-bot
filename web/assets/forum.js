@@ -50,21 +50,65 @@ const renderPostList = (posts) => {
     .join("");
 };
 
+const sortByScoreThenTime = (items) => {
+  return [...items].sort((a, b) => {
+    const scoreDiff = (b.score ?? 0) - (a.score ?? 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    return new Date(b.published_at || 0) - new Date(a.published_at || 0);
+  });
+};
+
+const buildCommentTree = (comments, rootID) => {
+  const nodes = new Map();
+  comments.forEach((comment) => {
+    nodes.set(comment.id, { ...comment, children: [] });
+  });
+
+  const roots = [];
+  nodes.forEach((node) => {
+    if (node.parent_id === rootID || !nodes.has(node.parent_id)) {
+      roots.push(node);
+      return;
+    }
+    nodes.get(node.parent_id).children.push(node);
+  });
+
+  const sortTree = (items) => {
+    const sorted = sortByScoreThenTime(items);
+    sorted.forEach((item) => {
+      item.children = sortTree(item.children);
+    });
+    return sorted;
+  };
+
+  return sortTree(roots);
+};
+
+const renderCommentNode = (comment, depth = 0) => `
+  <div class="comment-node" data-depth="${depth}">
+    <div class="comment-body">
+      <small>Reply by ${comment.author_name || "unknown"} • ${formatTime(comment.published_at)}</small>
+      <div class="md">${renderMarkdown(comment.content || "")}</div>
+    </div>
+    ${
+      comment.children?.length
+        ? `<div class="comment-children">${comment.children
+            .map((child) => renderCommentNode(child, depth + 1))
+            .join("")}</div>`
+        : ""
+    }
+  </div>
+`;
+
 const renderPostDetail = (post, comments) => {
   if (!post) {
     forumContent.innerHTML = `<div class="empty">Post not found.</div>`;
     return;
   }
-  const commentList = comments
-    .map(
-      (comment) => `
-      <div class="feed-item">
-        <small>Reply by ${comment.author_name || "unknown"} • ${formatTime(comment.published_at)}</small>
-        <div class="md">${renderMarkdown(comment.content || "")}</div>
-      </div>
-    `
-    )
-    .join("");
+  const tree = buildCommentTree(comments || [], post.id);
+  const commentList = tree.length
+    ? tree.map((comment) => renderCommentNode(comment)).join("")
+    : `<div class="empty">No comments yet.</div>`;
 
   forumContent.innerHTML = `
     <article class="post">
@@ -82,7 +126,7 @@ const renderPostDetail = (post, comments) => {
     </article>
     <section class="feed-section">
       <h3>Discussion</h3>
-      ${commentList || `<div class="empty">No comments yet.</div>`}
+      ${commentList}
     </section>
   `;
 };

@@ -175,8 +175,7 @@ func main() {
 		if post == nil {
 			return nil, http.StatusNotFound, fmt.Errorf("post not found")
 		}
-		comments := forum.GetComments(postID)
-		sortPublicationsByScoreDesc(comments)
+		comments := forum.GetThreadComments(postID)
 		return ForumPostResponse{Post: post, Comments: comments}, http.StatusOK, nil
 	}))
 
