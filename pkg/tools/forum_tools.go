@@ -127,6 +127,8 @@ type CommentSummary struct {
 	Content    string `json:"content"`
 	AuthorName string `json:"author_name"`
 	Score      int    `json:"score"`
+	ParentID   string `json:"parent_id,omitempty"`
+	Depth      int    `json:"depth"`
 }
 
 // ReadPostTool creates the read post tool.
@@ -141,15 +143,18 @@ func (ft *ForumToolset) ReadPostTool() (tool.Tool, error) {
 		ft.forum.IncrementViews(input.PostID)
 		ft.recordInteraction(post)
 
-		// Get comments
-		commentPubs := ft.forum.GetComments(input.PostID)
+		// Get threaded comments
+		commentPubs := ft.forum.GetThreadComments(input.PostID)
 		comments := make([]CommentSummary, 0, len(commentPubs))
 		for _, c := range commentPubs {
+			depth := computeCommentDepth(ft.forum, c, input.PostID)
 			comments = append(comments, CommentSummary{
 				ID:         c.ID,
 				Content:    c.Content,
 				AuthorName: c.AuthorName,
 				Score:      c.Score,
+				ParentID:   c.ParentID,
+				Depth:      depth,
 			})
 		}
 
@@ -167,7 +172,7 @@ func (ft *ForumToolset) ReadPostTool() (tool.Tool, error) {
 
 	return functiontool.New(functiontool.Config{
 		Name:        "read_post",
-		Description: "阅读帖子详情，包括完整内容和评论。",
+		Description: "阅读帖子详情，包括完整内容和树形评论（含 parent_id 与 depth）。",
 	}, handler)
 }
 
@@ -269,8 +274,9 @@ func (ft *ForumToolset) VoteTool() (tool.Tool, error) {
 
 // CommentInput is the input for commenting.
 type CommentInput struct {
-	PostID  string `json:"post_id"`
-	Content string `json:"content"`
+	PostID   string `json:"post_id,omitempty"`
+	ParentID string `json:"parent_id,omitempty"`
+	Content  string `json:"content"`
 }
 
 // CommentOutput is the output of commenting.
@@ -282,13 +288,20 @@ type CommentOutput struct {
 // CommentTool creates the comment tool.
 func (ft *ForumToolset) CommentTool(agentName string) (tool.Tool, error) {
 	handler := func(ctx tool.Context, input CommentInput) (CommentOutput, error) {
+		parentID := input.ParentID
+		if parentID == "" {
+			parentID = input.PostID
+		}
+		if parentID == "" {
+			return CommentOutput{}, fmt.Errorf("missing parent_id or post_id")
+		}
 		comment := &types.Publication{
 			AuthorID:   ft.agentID,
 			AuthorName: agentName,
 			Content:    input.Content,
 		}
 
-		if err := ft.forum.Comment(input.PostID, comment); err != nil {
+		if err := ft.forum.Comment(parentID, comment); err != nil {
 			return CommentOutput{}, err
 		}
 
@@ -303,7 +316,7 @@ func (ft *ForumToolset) CommentTool(agentName string) (tool.Tool, error) {
 
 	return functiontool.New(functiontool.Config{
 		Name:        "comment",
-		Description: "对帖子发表评论。",
+		Description: "对帖子或评论回复。可传 parent_id 指定要回复的评论，否则使用 post_id 回复顶层。",
 	}, handler)
 }
 
@@ -371,6 +384,34 @@ func (ft *ForumToolset) personalizedFeed(input BrowseForumInput) []*types.Public
 	}
 
 	return posts
+}
+
+func computeCommentDepth(forum *publication.Forum, comment *types.Publication, rootID string) int {
+	if comment == nil {
+		return 0
+	}
+	depth := 0
+	seen := map[string]struct{}{}
+	parentID := comment.ParentID
+	for parentID != "" && parentID != rootID {
+		if _, ok := seen[parentID]; ok {
+			break
+		}
+		seen[parentID] = struct{}{}
+		parent := forum.Get(parentID)
+		if parent == nil {
+			break
+		}
+		depth++
+		parentID = parent.ParentID
+	}
+	if parentID == rootID {
+		depth++
+	}
+	if depth == 0 {
+		return 1
+	}
+	return depth
 }
 
 type scoredPost struct {

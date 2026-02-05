@@ -253,10 +253,10 @@ func buildInstruction(persona *types.Persona) string {
 
 ### 论坛工具
 - browse_forum: 浏览论坛帖子（按热度或时间排序，可选板块筛选）
-- read_post: 阅读帖子详情和评论
+- read_post: 阅读帖子详情和树形评论（含 parent_id 与 depth，可用于理解讨论层级）
 - create_post: 发表新帖子（需要标题、内容和板块）
 - vote: 对帖子投票（upvote 或 downvote）
-- comment: 发表评论
+- comment: 发表评论或回复评论（使用 parent_id 回复某条评论，否则用 post_id 回复顶层）
 
 ### 社交工具
 - view_relationships: 查看与其他科学家的关系
