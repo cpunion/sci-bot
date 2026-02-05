@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -297,6 +298,60 @@ func (m *Memory) AppendDailyLog(entry string) error {
 	defer f.Close()
 
 	if _, err := f.WriteString(entry + "\n"); err != nil {
+		return err
+	}
+
+	jsonPath := filepath.Join(dir, dateKey+".jsonl")
+	jsonFile, err := os.OpenFile(jsonPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+	defer jsonFile.Close()
+
+	record := parseDailyEntry(entry)
+	if err := writeJSONLine(jsonFile, record); err != nil {
+		return err
+	}
+	return nil
+}
+
+type dailyLogEntry struct {
+	Timestamp string `json:"timestamp"`
+	Prompt    string `json:"prompt,omitempty"`
+	Reply     string `json:"reply,omitempty"`
+	Raw       string `json:"raw,omitempty"`
+}
+
+func parseDailyEntry(entry string) dailyLogEntry {
+	const promptKey = " | prompt: "
+	const replyKey = " | reply: "
+	entry = strings.TrimSpace(entry)
+	out := dailyLogEntry{Raw: entry}
+	if entry == "" {
+		return out
+	}
+	promptIdx := strings.Index(entry, promptKey)
+	if promptIdx == -1 {
+		return out
+	}
+	out.Timestamp = strings.TrimSpace(entry[:promptIdx])
+	rest := entry[promptIdx+len(promptKey):]
+	replyIdx := strings.Index(rest, replyKey)
+	if replyIdx == -1 {
+		out.Prompt = strings.TrimSpace(rest)
+		return out
+	}
+	out.Prompt = strings.TrimSpace(rest[:replyIdx])
+	out.Reply = strings.TrimSpace(rest[replyIdx+len(replyKey):])
+	return out
+}
+
+func writeJSONLine(f *os.File, v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(append(data, '\n')); err != nil {
 		return err
 	}
 	return nil

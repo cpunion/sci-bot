@@ -199,8 +199,36 @@ const renderDailyEntry = (entry) => {
   `;
 };
 
+const renderStructuredEntry = (entry) => {
+  const summarySource = entry.reply || entry.prompt || entry.raw || "";
+  return `
+    <div class="daily-entry">
+      <div class="daily-header">
+        <span class="daily-time">${formatDateTime(entry.timestamp)}</span>
+        <div class="daily-summary">${summarizeText(summarySource)}</div>
+      </div>
+      ${
+        entry.prompt
+          ? `<div class="daily-label">Prompt</div><div class="md">${renderMarkdown(entry.prompt)}</div>`
+          : ""
+      }
+      ${
+        entry.reply
+          ? `<div class="daily-label">Reply</div><div class="md">${renderMarkdown(entry.reply)}</div>`
+          : ""
+      }
+      ${
+        !entry.prompt && !entry.reply && entry.raw
+          ? `<div class="md">${renderMarkdown(entry.raw)}</div>`
+          : ""
+      }
+    </div>
+  `;
+};
+
 const renderNote = (note) => {
-  const entries = parseDailyEntries(note.content || "");
+  const structured = note.entries && note.entries.length ? note.entries : null;
+  const entries = structured || parseDailyEntries(note.content || "");
   if (!entries.length) {
     return `
       <div class="daily-group">
@@ -212,7 +240,7 @@ const renderNote = (note) => {
   return `
     <div class="daily-group">
       <h4>${note.date}</h4>
-      ${entries.map(renderDailyEntry).join("")}
+      ${entries.map(structured ? renderStructuredEntry : renderDailyEntry).join("")}
     </div>
   `;
 };

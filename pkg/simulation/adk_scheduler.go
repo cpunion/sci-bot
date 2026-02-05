@@ -3,6 +3,7 @@ package simulation
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -568,7 +569,7 @@ func (s *ADKScheduler) updateAgentSummary(ctx context.Context, ar *agentRunner, 
 		log.Printf("Failed to append summary event: %v", err)
 	}
 
-	if err := s.appendDailyLog(ar.persona.ID, entry); err != nil {
+	if err := s.appendDailyLog(ar.persona.ID, promptText, responseText, entry); err != nil {
 		log.Printf("Failed to append daily log: %v", err)
 	}
 }
@@ -608,7 +609,7 @@ func truncateRunes(s string, maxChars int) string {
 	return string(runes[len(runes)-maxChars:])
 }
 
-func (s *ADKScheduler) appendDailyLog(agentID, entry string) error {
+func (s *ADKScheduler) appendDailyLog(agentID, promptText, responseText, entry string) error {
 	if entry == "" {
 		return nil
 	}
@@ -620,15 +621,52 @@ func (s *ADKScheduler) appendDailyLog(agentID, entry string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	path := filepath.Join(dir, dateKey+".md")
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	mdPath := filepath.Join(dir, dateKey+".md")
+	mdFile, err := os.OpenFile(mdPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer mdFile.Close()
 
-	_, err = f.WriteString(entry + "\n")
-	return err
+	if _, err := mdFile.WriteString(entry + "\n"); err != nil {
+		return err
+	}
+
+	jsonPath := filepath.Join(dir, dateKey+".jsonl")
+	jsonFile, err := os.OpenFile(jsonPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+	defer jsonFile.Close()
+
+	record := dailyLogEntry{
+		Timestamp: s.simTime.Format(time.RFC3339),
+		Prompt:    strings.TrimSpace(promptText),
+		Reply:     strings.TrimSpace(responseText),
+		Raw:       entry,
+	}
+	if err := writeJSONLine(jsonFile, record); err != nil {
+		return err
+	}
+	return nil
+}
+
+type dailyLogEntry struct {
+	Timestamp string `json:"timestamp"`
+	Prompt    string `json:"prompt,omitempty"`
+	Reply     string `json:"reply,omitempty"`
+	Raw       string `json:"raw,omitempty"`
+}
+
+func writeJSONLine(f *os.File, v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(append(data, '\n')); err != nil {
+		return err
+	}
+	return nil
 }
 
 // RunFor runs the simulation for n ticks.

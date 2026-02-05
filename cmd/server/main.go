@@ -35,6 +35,14 @@ type AgentInfo struct {
 type DailyNote struct {
 	Date    string `json:"date"`
 	Content string `json:"content"`
+	Entries []DailyEntry `json:"entries,omitempty"`
+}
+
+type DailyEntry struct {
+	Timestamp string `json:"timestamp"`
+	Prompt    string `json:"prompt,omitempty"`
+	Reply     string `json:"reply,omitempty"`
+	Raw       string `json:"raw,omitempty"`
 }
 
 type AgentDetail struct {
@@ -450,21 +458,38 @@ func loadDailyNotes(dataPath, agentID string, limit int) []DailyNote {
 	if err != nil {
 		return nil
 	}
-	notes := make([]DailyNote, 0, len(entries))
+	notesByDate := make(map[string]*DailyNote)
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
 		name := entry.Name()
+		if strings.HasSuffix(name, ".jsonl") {
+			date := strings.TrimSuffix(name, ".jsonl")
+			entries, err := readDailyEntries(filepath.Join(dir, name))
+			if err != nil || len(entries) == 0 {
+				continue
+			}
+			note := &DailyNote{Date: date, Entries: entries}
+			notesByDate[date] = note
+			continue
+		}
 		if !strings.HasSuffix(name, ".md") {
+			continue
+		}
+		date := strings.TrimSuffix(name, ".md")
+		if _, exists := notesByDate[date]; exists {
 			continue
 		}
 		content, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
 			continue
 		}
-		date := strings.TrimSuffix(name, ".md")
-		notes = append(notes, DailyNote{Date: date, Content: strings.TrimSpace(string(content))})
+		notesByDate[date] = &DailyNote{Date: date, Content: strings.TrimSpace(string(content))}
+	}
+	notes := make([]DailyNote, 0, len(notesByDate))
+	for _, note := range notesByDate {
+		notes = append(notes, *note)
 	}
 	if len(notes) == 0 {
 		return nil
@@ -477,6 +502,27 @@ func loadDailyNotes(dataPath, agentID string, limit int) []DailyNote {
 		notes = notes[:limit]
 	}
 	return notes
+}
+
+func readDailyEntries(path string) ([]DailyEntry, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	lines := strings.Split(string(data), "\n")
+	out := make([]DailyEntry, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var entry DailyEntry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			continue
+		}
+		out = append(out, entry)
+	}
+	return out, nil
 }
 
 func parseLimit(value string, fallback, min, max int) int {
