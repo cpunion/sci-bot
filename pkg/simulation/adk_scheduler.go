@@ -660,6 +660,25 @@ func writeJSONLine(f *os.File, v any) error {
 	return nil
 }
 
+func (s *ADKScheduler) saveSimState() error {
+	if s.dataPath == "" {
+		return nil
+	}
+	if err := os.MkdirAll(s.dataPath, 0755); err != nil {
+		return err
+	}
+	state := SimState{
+		SimTime:     s.simTime,
+		Ticks:       s.ticks,
+		StepSeconds: int(s.simStep.Seconds()),
+	}
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(s.dataPath, "sim_state.json"), data, 0644)
+}
+
 // RunFor runs the simulation for n ticks.
 func (s *ADKScheduler) RunFor(ctx context.Context, n int) error {
 	for i := 0; i < n; i++ {
@@ -699,6 +718,10 @@ func (s *ADKScheduler) Save() error {
 		if err := s.logger.Close(); err != nil {
 			return fmt.Errorf("failed to close logger: %w", err)
 		}
+	}
+
+	if err := s.saveSimState(); err != nil {
+		return fmt.Errorf("failed to save sim state: %w", err)
 	}
 
 	return nil

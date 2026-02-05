@@ -90,6 +90,15 @@ func main() {
 	forum := publication.NewForum("自由论坛", filepath.Join(*dataPath, "forum"))
 	_ = forum.Load()
 
+	startTime := time.Now()
+	if state, err := simulation.LoadSimState(*dataPath); err == nil && !state.SimTime.IsZero() {
+		startTime = state.SimTime
+		if state.StepSeconds > 0 && time.Duration(state.StepSeconds)*time.Second != *step {
+			log.Printf("Warning: sim step changed (prev %s, now %s)", time.Duration(state.StepSeconds)*time.Second, step.String())
+		}
+		fmt.Printf("Resume sim time: %s\n", startTime.Format(time.RFC3339))
+	}
+
 	personas := simulation.GeneratePersonas(*agentCount, *seed)
 	if len(forum.AllPosts()) == 0 {
 		seedInitialContent(forum, personas)
@@ -100,7 +109,7 @@ func main() {
 		Model:      defaultModel,
 		Logger:     logger,
 		SimStep:    *step,
-		StartTime:  time.Now(),
+		StartTime:  startTime,
 		TurnLimit:  *turnLimit,
 		GraceTurns: *graceTurns,
 		ModelForPersona: func(p *types.Persona) model.LLM {
