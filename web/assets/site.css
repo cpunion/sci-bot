@@ -263,9 +263,7 @@ main {
 }
 
 #agent-root {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  display: block;
 }
 
 .forum-layout {
@@ -425,6 +423,10 @@ main {
   font-size: 1.6rem;
 }
 
+.agent-hero {
+  margin-bottom: 20px;
+}
+
 .feed-section {
   background: var(--card);
   border-radius: 20px;
@@ -435,6 +437,10 @@ main {
 
 .feed-section + .feed-section {
   margin-top: 20px;
+}
+
+#agent-root > .feed-section:last-child {
+  margin-bottom: 0;
 }
 
 .feed-item {
