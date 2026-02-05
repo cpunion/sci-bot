@@ -3,9 +3,10 @@ module github.com/cpunion/sci-bot
 go 1.24.11
 
 require (
+	github.com/cpunion/ailib v0.0.0-20260205233315-4aa7ffd3407e
 	github.com/joho/godotenv v1.5.1
 	google.golang.org/adk v0.4.0
-	google.golang.org/genai v1.44.0
+	google.golang.org/genai v1.45.0
 )
 
 require (

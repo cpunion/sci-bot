@@ -8,15 +8,15 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	ailibmodel "github.com/cpunion/ailib/adk/model"
 	"github.com/cpunion/sci-bot/pkg/publication"
 	"github.com/cpunion/sci-bot/pkg/simulation"
 	"github.com/cpunion/sci-bot/pkg/types"
 	"github.com/joho/godotenv"
 	"google.golang.org/adk/model"
-	"google.golang.org/adk/model/gemini"
-	"google.golang.org/genai"
 )
 
 func main() {
@@ -29,8 +29,8 @@ func main() {
 	days := flag.Int("days", 0, "Simulated days (overrides ticks when > 0)")
 	step := flag.Duration("step", time.Hour, "Simulated time per tick")
 	dataPath := flag.String("data", "./data/adk-simulation", "Data directory")
-	modelName := flag.String("model", modelDefault, "Gemini model for general agents")
-	reviewerModelName := flag.String("reviewer-model", reviewerDefault, "Gemini model for reviewer agents")
+	modelName := flag.String("model", modelDefault, "LLM model spec for general agents (e.g. gemini:gemini-3-flash-preview)")
+	reviewerModelName := flag.String("reviewer-model", reviewerDefault, "LLM model spec for reviewer agents (e.g. gemini:gemini-3-pro-preview)")
 	logPath := flag.String("log", "./data/adk-simulation/logs.jsonl", "Path to JSONL log file")
 	logAppend := flag.Bool("log-append", true, "Append to log file instead of truncating")
 	turnLimit := flag.Int("turns", 10, "Per-agent turn limit before sleep")
@@ -51,24 +51,14 @@ func main() {
 		log.Fatalf("Failed to create data directory: %v", err)
 	}
 
-	apiKey := os.Getenv("GOOGLE_API_KEY")
-	if apiKey == "" {
-		log.Fatal("GOOGLE_API_KEY not set")
-	}
-
-	clientCfg := &genai.ClientConfig{
-		APIKey:  apiKey,
-		Backend: genai.BackendGeminiAPI,
-	}
-
-	defaultModel, err := gemini.NewModel(ctx, *modelName, clientCfg)
+	defaultModel, err := newLLM(ctx, normalizeModelSpec(*modelName))
 	if err != nil {
-		log.Fatalf("Failed to create Gemini model (%s): %v", *modelName, err)
+		log.Fatalf("Failed to create model (%s): %v", *modelName, err)
 	}
 
 	reviewerModel := defaultModel
 	if *reviewerModelName != *modelName {
-		reviewerModel, err = gemini.NewModel(ctx, *reviewerModelName, clientCfg)
+		reviewerModel, err = newLLM(ctx, normalizeModelSpec(*reviewerModelName))
 		if err != nil {
 			log.Fatalf("Failed to create reviewer model (%s): %v", *reviewerModelName, err)
 		}
@@ -79,7 +69,7 @@ func main() {
 		log.Fatalf("Failed to create logger: %v", err)
 	}
 
-	fmt.Println("=== Sci-Bot ADK Simulation (Gemini) ===")
+	fmt.Println("=== Sci-Bot ADK Simulation ===")
 	fmt.Printf("Model (default): %s\n", *modelName)
 	fmt.Printf("Model (reviewer): %s\n", *reviewerModelName)
 	fmt.Printf("Agents: %d\n", *agentCount)
@@ -159,6 +149,40 @@ func main() {
 	}
 
 	fmt.Println("\nState saved to:", *dataPath)
+}
+
+func normalizeModelSpec(spec string) string {
+	spec = strings.TrimSpace(spec)
+	if spec == "" {
+		return spec
+	}
+	// If the provider is explicitly specified, keep it.
+	if strings.Contains(spec, ":") {
+		return spec
+	}
+	// If the spec contains a slash, treat it as an OpenRouter-style model name and
+	// let the factory default to openrouter (backward compatible).
+	if strings.Contains(spec, "/") {
+		return spec
+	}
+	// Backward compatible default: our project historically assumes Gemini.
+	return ailibmodel.ProviderGemini + ":" + spec
+}
+
+func newLLM(ctx context.Context, modelSpec string) (model.LLM, error) {
+	provider, _ := ailibmodel.ParseModelString(modelSpec)
+	// Keep compatibility with existing .env (`GOOGLE_API_KEY`) while still
+	// allowing provider-specific env vars for other providers.
+	//
+	// ailib expects GEMINI_API_KEY for Gemini provider, while this repo uses
+	// GOOGLE_API_KEY historically.
+	if provider == ailibmodel.ProviderGemini {
+		if os.Getenv("GEMINI_API_KEY") == "" && os.Getenv("GOOGLE_API_KEY") != "" {
+			_ = os.Setenv("GEMINI_API_KEY", os.Getenv("GOOGLE_API_KEY"))
+		}
+	}
+
+	return ailibmodel.New(ctx, modelSpec)
 }
 
 func envOr(key, fallback string) string {
