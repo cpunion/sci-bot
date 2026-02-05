@@ -128,6 +128,9 @@ func GeneratePersonas(count int, seed int64) []*types.Persona {
 	}
 	rng := rand.New(rand.NewSource(seed))
 	roleCounts := map[types.AgentRole]int{}
+	for _, p := range personas {
+		roleCounts[p.Role]++
+	}
 	nameIdx := 0
 
 	for len(personas) < count {
