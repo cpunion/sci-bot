@@ -48,6 +48,7 @@ type ADKScheduler struct {
 	simTime         time.Time
 	simStep         time.Duration
 	agentsPerTick   int
+	checkpointEvery int
 
 	// Stats
 	ticks       int
@@ -79,6 +80,7 @@ type ADKSchedulerConfig struct {
 	SimStep         time.Duration
 	StartTime       time.Time
 	AgentsPerTick   int
+	CheckpointEvery int
 }
 
 // NewADKScheduler creates a new ADK-based scheduler.
@@ -101,6 +103,11 @@ func NewADKScheduler(cfg ADKSchedulerConfig) *ADKScheduler {
 		startTime = time.Now()
 	}
 
+	checkpointEvery := cfg.CheckpointEvery
+	if checkpointEvery <= 0 {
+		checkpointEvery = 1
+	}
+
 	return &ADKScheduler{
 		runners:         make(map[string]*agentRunner),
 		dataPath:        cfg.DataPath,
@@ -112,6 +119,7 @@ func NewADKScheduler(cfg ADKSchedulerConfig) *ADKScheduler {
 		simTime:         startTime,
 		simStep:         simStep,
 		agentsPerTick:   maxInt(cfg.AgentsPerTick, 1),
+		checkpointEvery: checkpointEvery,
 		actionStats:     make(map[string]int),
 	}
 }
@@ -370,6 +378,11 @@ func (s *ADKScheduler) RunTick(ctx context.Context) error {
 		s.logEvent(ar, prompt, responseText, toolCalls, toolResponses)
 	}
 	s.simTime = s.simTime.Add(s.simStep)
+	if s.checkpointEvery > 0 && s.ticks%s.checkpointEvery == 0 {
+		if err := s.checkpointLocked(false); err != nil {
+			log.Printf("Checkpoint failed: %v", err)
+		}
+	}
 
 	return nil
 }
@@ -704,23 +717,7 @@ func (s *ADKScheduler) saveSimState() error {
 	return os.WriteFile(filepath.Join(s.dataPath, "sim_state.json"), data, 0644)
 }
 
-// RunFor runs the simulation for n ticks.
-func (s *ADKScheduler) RunFor(ctx context.Context, n int) error {
-	for i := 0; i < n; i++ {
-		if err := s.RunTick(ctx); err != nil {
-			return err
-		}
-		// Small delay to avoid rate limiting
-		time.Sleep(100 * time.Millisecond)
-	}
-	return nil
-}
-
-// Save saves all agent states and publications.
-func (s *ADKScheduler) Save() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func (s *ADKScheduler) checkpointLocked(closeLogger bool) error {
 	for _, ar := range s.runners {
 		if err := ar.state.Save(); err != nil {
 			return fmt.Errorf("failed to save state for %s: %w", ar.persona.Name, err)
@@ -739,17 +736,45 @@ func (s *ADKScheduler) Save() error {
 		}
 	}
 
-	if s.logger != nil {
+	if err := s.saveSimState(); err != nil {
+		return fmt.Errorf("failed to save sim state: %w", err)
+	}
+
+	if closeLogger && s.logger != nil {
 		if err := s.logger.Close(); err != nil {
 			return fmt.Errorf("failed to close logger: %w", err)
 		}
 	}
 
-	if err := s.saveSimState(); err != nil {
-		return fmt.Errorf("failed to save sim state: %w", err)
-	}
-
 	return nil
+}
+
+// RunFor runs the simulation for n ticks.
+func (s *ADKScheduler) RunFor(ctx context.Context, n int) error {
+	for i := 0; i < n; i++ {
+		if err := s.RunTick(ctx); err != nil {
+			return err
+		}
+		// Small delay to avoid rate limiting
+		time.Sleep(100 * time.Millisecond)
+	}
+	return nil
+}
+
+// Save saves all agent states and publications.
+func (s *ADKScheduler) Save() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.checkpointLocked(true)
+}
+
+// Checkpoint persists current state without closing the logger.
+func (s *ADKScheduler) Checkpoint() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.checkpointLocked(false)
 }
 
 // Stats returns simulation statistics.
