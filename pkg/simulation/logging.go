@@ -42,11 +42,18 @@ type JSONLLogger struct {
 }
 
 // NewJSONLLogger creates a JSONL logger at the given path.
-func NewJSONLLogger(path string) (*JSONLLogger, error) {
+// When appendMode is true, logs are appended; otherwise, the file is truncated.
+func NewJSONLLogger(path string, appendMode bool) (*JSONLLogger, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return nil, err
 	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	flags := os.O_CREATE | os.O_WRONLY
+	if appendMode {
+		flags |= os.O_APPEND
+	} else {
+		flags |= os.O_TRUNC
+	}
+	file, err := os.OpenFile(path, flags, 0644)
 	if err != nil {
 		return nil, err
 	}

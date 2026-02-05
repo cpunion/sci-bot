@@ -37,6 +37,7 @@ type ADKScheduler struct {
 	// Shared resources
 	journal  *publication.Journal
 	forum    *publication.Forum
+	workflow *publication.Workflow
 	dataPath string
 
 	// Configuration
@@ -74,6 +75,7 @@ type ADKSchedulerConfig struct {
 	DataPath        string
 	Model           model.LLM
 	ModelForPersona func(*types.Persona) model.LLM
+	Workflow        *publication.Workflow
 	TurnLimit       int
 	GraceTurns      int
 	Logger          EventLogger
@@ -108,6 +110,14 @@ func NewADKScheduler(cfg ADKSchedulerConfig) *ADKScheduler {
 		checkpointEvery = 1
 	}
 
+	workflow := cfg.Workflow
+	if workflow == nil && cfg.DataPath != "" {
+		workflow = publication.NewWorkflow(filepath.Join(cfg.DataPath, "workflow"))
+		if err := workflow.Load(); err != nil {
+			log.Printf("Failed to load workflow: %v", err)
+		}
+	}
+
 	return &ADKScheduler{
 		runners:         make(map[string]*agentRunner),
 		dataPath:        cfg.DataPath,
@@ -120,6 +130,7 @@ func NewADKScheduler(cfg ADKSchedulerConfig) *ADKScheduler {
 		simStep:         simStep,
 		agentsPerTick:   maxInt(cfg.AgentsPerTick, 1),
 		checkpointEvery: checkpointEvery,
+		workflow:        workflow,
 		actionStats:     make(map[string]int),
 	}
 }
@@ -132,6 +143,11 @@ func (s *ADKScheduler) SetJournal(journal *publication.Journal) {
 // SetForum sets the forum for publication.
 func (s *ADKScheduler) SetForum(forum *publication.Forum) {
 	s.forum = forum
+}
+
+// SetWorkflow sets the workflow store.
+func (s *ADKScheduler) SetWorkflow(workflow *publication.Workflow) {
+	s.workflow = workflow
 }
 
 // AddAgent adds an agent to the scheduler.
@@ -154,6 +170,7 @@ func (s *ADKScheduler) AddAgent(ctx context.Context, persona *types.Persona) err
 	// Create tools
 	forumToolset := tools.NewForumToolset(s.forum, persona.ID, persona, state)
 	socialToolset := tools.NewSocialToolset(state, persona.ID)
+	publicationToolset := tools.NewPublicationToolset(s.workflow, s.journal, s.forum, persona, s.dataPath)
 
 	forumTools, err := forumToolset.AllTools(persona.Name)
 	if err != nil {
@@ -165,7 +182,13 @@ func (s *ADKScheduler) AddAgent(ctx context.Context, persona *types.Persona) err
 		return fmt.Errorf("failed to create social tools: %w", err)
 	}
 
+	publicationTools, err := publicationToolset.AllTools()
+	if err != nil {
+		return fmt.Errorf("failed to create publication tools: %w", err)
+	}
+
 	allTools := append(forumTools, socialTools...)
+	allTools = append(allTools, publicationTools...)
 
 	// Create LLM agent
 	instruction := buildInstruction(persona)
@@ -266,9 +289,18 @@ func buildInstruction(persona *types.Persona) string {
 ### 论坛工具
 - browse_forum: 浏览论坛帖子（按热度或时间排序，可选板块筛选）
 - read_post: 阅读帖子详情和树形评论（含 parent_id 与 depth，可用于理解讨论层级）
+- browse_mentions: 查看与你相关的 @ 提及或回复，优先处理
 - create_post: 发表新帖子（需要标题、内容和板块）
 - vote: 对帖子投票（upvote 或 downvote）
 - comment: 发表评论或回复评论（使用 parent_id 回复某条评论，否则用 post_id 回复顶层）
+
+### 发表工具
+- assess_readiness: 评估个人想法成熟度
+- assess_consensus: 评估论坛线程共识成熟度
+- create_draft: 创建学术草案（idea 或 collaborative）
+- request_consensus: 在论坛帖子下发起共识请求（自动发布评论）
+- submit_paper: 提交草案到期刊审稿
+- review_paper: 对投稿进行审稿（Reviewer 角色）
 
 ### 社交工具
 - view_relationships: 查看与其他科学家的关系
@@ -285,6 +317,7 @@ func buildInstruction(persona *types.Persona) string {
 ## 发言规则
 - 只有在被点名、能提供新见解/证据、纠错或总结时才发言
 - 如果没有增量贡献，请简短说明继续观察
+- 若被 @ 提及或有人回复你，请优先处理
 
 ## 创新导向
 - 在科研相关问题上主动创新、提出新假设或改进建议

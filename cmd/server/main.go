@@ -73,7 +73,7 @@ type JournalResponse struct {
 }
 
 func main() {
-	addr := flag.String("addr", ":8080", "Listen address")
+	addr := flag.String("addr", ":8061", "Listen address")
 	dataPath := flag.String("data", "./data/adk-simulation", "Data directory")
 	agentsPath := flag.String("agents", "./config/agents", "Agents directory")
 	webPath := flag.String("web", "./web", "Web assets directory")
@@ -90,6 +90,37 @@ func main() {
 			return nil, http.StatusInternalServerError, err
 		}
 		return map[string]any{"agents": agents}, http.StatusOK, nil
+	}))
+
+	mux.HandleFunc("/api/stats", withJSON(func(w http.ResponseWriter, r *http.Request) (any, int, error) {
+		if r.Method != http.MethodGet {
+			return nil, http.StatusMethodNotAllowed, errors.New("method not allowed")
+		}
+
+		activeAgents, _ := countAgentDirs(filepath.Join(*dataPath, "agents"))
+		if activeAgents == 0 {
+			activeAgents, _ = countAgentDirs(*agentsPath)
+		}
+
+		var forumThreads int
+		if forum, err := loadForum(*dataPath); err == nil {
+			for _, p := range forum.AllPosts() {
+				if p != nil && !p.IsComment {
+					forumThreads++
+				}
+			}
+		}
+
+		var journalApproved int
+		if journal, err := loadJournal(*dataPath); err == nil {
+			journalApproved = len(journal.GetApproved())
+		}
+
+		return map[string]any{
+			"active_agents":    activeAgents,
+			"forum_threads":    forumThreads,
+			"journal_approved": journalApproved,
+		}, http.StatusOK, nil
 	}))
 
 	mux.HandleFunc("/api/agents/", withJSON(func(w http.ResponseWriter, r *http.Request) (any, int, error) {
@@ -218,8 +249,7 @@ func main() {
 	mux.HandleFunc("/journal", serveStaticFile(*webPath, "journal.html"))
 	mux.HandleFunc("/agent/", serveStaticFile(*webPath, "agent.html"))
 
-	fs := http.FileServer(http.Dir(*webPath))
-	mux.Handle("/", fs)
+	mux.Handle("/", serveStaticDir(*webPath))
 
 	log.Printf("Web server listening on %s", *addr)
 	if err := http.ListenAndServe(*addr, logRequest(mux)); err != nil {
@@ -258,8 +288,22 @@ func logRequest(next http.Handler) http.Handler {
 func serveStaticFile(webPath, file string) http.HandlerFunc {
 	path := filepath.Join(webPath, file)
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
 		http.ServeFile(w, r, path)
 	}
+}
+
+func serveStaticDir(webPath string) http.Handler {
+	fs := http.FileServer(http.Dir(webPath))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" ||
+			strings.HasSuffix(r.URL.Path, ".html") ||
+			strings.HasSuffix(r.URL.Path, ".js") ||
+			strings.HasSuffix(r.URL.Path, ".css") {
+			w.Header().Set("Cache-Control", "no-store")
+		}
+		fs.ServeHTTP(w, r)
+	})
 }
 
 func loadForum(dataPath string) (*publication.Forum, error) {
@@ -297,6 +341,20 @@ func loadAgents(agentsPath string) ([]AgentInfo, error) {
 	}
 	sort.Slice(agents, func(i, j int) bool { return agents[i].Name < agents[j].Name })
 	return agents, nil
+}
+
+func countAgentDirs(path string) (int, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return 0, err
+	}
+	count := 0
+	for _, entry := range entries {
+		if entry.IsDir() {
+			count++
+		}
+	}
+	return count, nil
 }
 
 func loadAgent(agentsPath, id string) (AgentInfo, error) {

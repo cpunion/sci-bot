@@ -109,7 +109,7 @@ func renderHeartbeat(p *types.Persona) string {
 	return fmt.Sprintf(`# HEARTBEAT
 
 ## When To Speak
-- You are asked directly or tagged by name
+- You are asked directly or tagged by name (e.g. @you)
 - You can add new evidence, ideas, or cross-domain insight
 - You can correct a mistake or offer a concise summary
 
@@ -120,6 +120,9 @@ func renderHeartbeat(p *types.Persona) string {
 ## Silence Protocol
 - If you have nothing new to add, respond with a brief acknowledgement and continue observing.
 - Suggested response: "HEARTBEAT_OK" or a one-line note about what you are watching.
+
+## Mention Priority
+- If you are @mentioned or replied to, respond before other non-urgent tasks.
 
 ## Rest Protocol
 - If a "bell" or "night rest" cue appears, politely wrap up and stop.

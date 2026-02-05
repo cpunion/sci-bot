@@ -311,6 +311,7 @@ type Publication struct {
 	ID          string      `json:"id"`
 	Channel     ChannelType `json:"channel"`
 	TheoryID    string      `json:"theory_id,omitempty"`
+	DraftID     string      `json:"draft_id,omitempty"`
 	AuthorID    string      `json:"author_id"`
 	AuthorName  string      `json:"author_name"`
 	Title       string      `json:"title"`
@@ -325,6 +326,7 @@ type Publication struct {
 	Score     int       `json:"score"`               // Upvotes - Downvotes
 	ParentID  string    `json:"parent_id,omitempty"` // For replies/comments
 	IsComment bool      `json:"is_comment,omitempty"`
+	Mentions  []string  `json:"mentions,omitempty"`
 
 	// Journal specific
 	Reviewers []string `json:"reviewers,omitempty"`
@@ -333,6 +335,113 @@ type Publication struct {
 	// Stats
 	Views    int `json:"views"`
 	Comments int `json:"comments"` // Number of comments/replies
+}
+
+type DraftKind string
+
+const (
+	DraftIdea          DraftKind = "idea"
+	DraftCollaborative DraftKind = "collaborative"
+)
+
+type DraftStatus string
+
+const (
+	DraftOpen   DraftStatus = "open"
+	DraftLocked DraftStatus = "locked"
+)
+
+// Draft represents a working manuscript before submission.
+type Draft struct {
+	ID           string      `json:"id"`
+	Kind         DraftKind   `json:"kind"`
+	Status       DraftStatus `json:"status,omitempty"`
+	Title        string      `json:"title"`
+	Abstract     string      `json:"abstract,omitempty"`
+	Content      string      `json:"content"`
+	Authors      []string    `json:"authors"`
+	SourcePostID string      `json:"source_post_id,omitempty"`
+	ConsensusID  string      `json:"consensus_id,omitempty"`
+	CreatedAt    time.Time   `json:"created_at"`
+	UpdatedAt    time.Time   `json:"updated_at"`
+}
+
+type ConsensusStatus string
+
+const (
+	ConsensusOpen     ConsensusStatus = "open"
+	ConsensusAchieved ConsensusStatus = "achieved"
+	ConsensusClosed   ConsensusStatus = "closed"
+)
+
+// ConsensusRequest represents a request to build consensus around a forum post.
+type ConsensusRequest struct {
+	ID            string          `json:"id"`
+	PostID        string          `json:"post_id"`
+	CommentID     string          `json:"comment_id,omitempty"`
+	RequesterID   string          `json:"requester_id"`
+	RequesterName string          `json:"requester_name"`
+	Reason        string          `json:"reason,omitempty"`
+	Mentions      []string        `json:"mentions,omitempty"`
+	Status        ConsensusStatus `json:"status,omitempty"`
+	Supporters    []string        `json:"supporters,omitempty"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
+}
+
+type SubmissionStatus string
+
+const (
+	SubmissionPending        SubmissionStatus = "pending"
+	SubmissionMinorRevision  SubmissionStatus = "minor_revision"
+	SubmissionMajorRevision  SubmissionStatus = "major_revision"
+	SubmissionAccepted       SubmissionStatus = "accepted"
+	SubmissionRejected       SubmissionStatus = "rejected"
+)
+
+// Submission represents a journal submission derived from a draft.
+type Submission struct {
+	ID        string           `json:"id"`
+	DraftID   string           `json:"draft_id,omitempty"`
+	Title     string           `json:"title"`
+	Abstract  string           `json:"abstract,omitempty"`
+	Content   string           `json:"content"`
+	AuthorID  string           `json:"author_id"`
+	AuthorName string          `json:"author_name"`
+	Status    SubmissionStatus `json:"status"`
+	ReviewIDs []string         `json:"review_ids,omitempty"`
+	CreatedAt time.Time        `json:"created_at"`
+	UpdatedAt time.Time        `json:"updated_at"`
+}
+
+type PaperReviewVerdict string
+
+const (
+	VerdictAccept        PaperReviewVerdict = "accept"
+	VerdictMinorRevision PaperReviewVerdict = "minor_revision"
+	VerdictMajorRevision PaperReviewVerdict = "major_revision"
+	VerdictReject        PaperReviewVerdict = "reject"
+)
+
+// PaperReviewScores captures scoring dimensions for peer review.
+type PaperReviewScores struct {
+	Novelty         float64 `json:"novelty"`
+	Rigor           float64 `json:"rigor"`
+	Falsifiability  float64 `json:"falsifiability"`
+	Reproducibility float64 `json:"reproducibility"`
+	CrossDomain     float64 `json:"cross_domain"`
+}
+
+// PaperReview represents one peer review for a submission.
+type PaperReview struct {
+	ID           string             `json:"id"`
+	SubmissionID string             `json:"submission_id"`
+	ReviewerID   string             `json:"reviewer_id"`
+	ReviewerName string             `json:"reviewer_name"`
+	Scores       PaperReviewScores  `json:"scores"`
+	Verdict      PaperReviewVerdict `json:"verdict"`
+	Comments     string             `json:"comments,omitempty"`
+	CreatedAt    time.Time          `json:"created_at"`
 }
 
 // Vote represents a vote on a publication.

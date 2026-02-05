@@ -32,6 +32,7 @@ func main() {
 	modelName := flag.String("model", modelDefault, "Gemini model for general agents")
 	reviewerModelName := flag.String("reviewer-model", reviewerDefault, "Gemini model for reviewer agents")
 	logPath := flag.String("log", "./data/adk-simulation/logs.jsonl", "Path to JSONL log file")
+	logAppend := flag.Bool("log-append", true, "Append to log file instead of truncating")
 	turnLimit := flag.Int("turns", 10, "Per-agent turn limit before sleep")
 	graceTurns := flag.Int("grace", 3, "Grace turns after bell")
 	agentsPerTick := flag.Int("per-tick", 1, "Number of agents to run per tick")
@@ -73,7 +74,7 @@ func main() {
 		}
 	}
 
-	logger, err := simulation.NewJSONLLogger(*logPath)
+	logger, err := simulation.NewJSONLLogger(*logPath, *logAppend)
 	if err != nil {
 		log.Fatalf("Failed to create logger: %v", err)
 	}

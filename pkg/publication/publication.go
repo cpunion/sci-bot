@@ -515,6 +515,18 @@ func (f *Forum) AllPosts() []*types.Publication {
 	return result
 }
 
+// AllPublications returns all forum publications (posts + comments).
+func (f *Forum) AllPublications() []*types.Publication {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	result := make([]*types.Publication, 0, len(f.Posts))
+	for _, p := range f.Posts {
+		result = append(result, p)
+	}
+	return result
+}
+
 // GetSubredditStats returns stats for each subreddit.
 func (f *Forum) GetSubredditStats() map[types.Subreddit]int {
 	f.mu.RLock()

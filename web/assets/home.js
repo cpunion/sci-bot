@@ -12,11 +12,11 @@ const fetchJSON = async (url) => {
   return res.json();
 };
 
-const renderStats = (agents, forumPosts, journalApproved) => {
+const renderStats = (stats) => {
   const items = [
-    { label: "Active Agents", value: agents.length },
-    { label: "Forum Threads", value: forumPosts.length },
-    { label: "Published Papers", value: journalApproved.length },
+    { label: "Active Agents", value: stats?.active_agents ?? 0 },
+    { label: "Forum Threads", value: stats?.forum_threads ?? 0 },
+    { label: "Published Papers", value: stats?.journal_approved ?? 0 },
   ];
   statsEl.innerHTML = items
     .map(
@@ -64,13 +64,14 @@ const renderHeroSummary = (forumPosts) => {
 
 const init = async () => {
   try {
-    const [{ agents }, forum, journal] = await Promise.all([
+    const [{ agents }, forum, journal, stats] = await Promise.all([
       fetchJSON("/api/agents"),
       fetchJSON("/api/forum?sort=hot&limit=6"),
       fetchJSON("/api/journal"),
+      fetchJSON("/api/stats"),
     ]);
 
-    renderStats(agents, forum.posts || [], journal.approved || []);
+    renderStats(stats);
     renderAgents(agents);
     renderHeroSummary(forum.posts || []);
   } catch (err) {

@@ -138,7 +138,7 @@ type SummaryMemory struct {
     Topics    []string  `json:"topics"`     // 主题线索（可选）
 }
 
-// 每日交互日志写入 daily/YYYY-MM-DD.md，与长期摘要分层保存。
+// 每日交互日志写入 daily/YYYY-MM-DD.jsonl，与长期摘要分层保存。
 
 type WorkingMemory struct {
     ContextWindow  int              `json:"context_window"`  // 上下文限制 (tokens)
@@ -221,9 +221,21 @@ func (d *DiversityEngine) SelectContentFor(agent *Agent, pool []Content) []Conte
     heretical := filterHereticalContent(pool)
 
     // 4. 根据 Agent 的 RiskTolerance 调整比例
-    return blend(relevant, exploration, heretical, agent.Persona.RiskTolerance)
+return blend(relevant, exploration, heretical, agent.Persona.RiskTolerance)
 }
 ```
+
+#### 2.2.3 @Mention 优先处理
+
+由于 Agent 不可能阅读论坛的全部帖子，系统引入 @Mention 机制：
+
+- 发言中使用 `@agent-id` 或 `@Name` 进行点名。
+- 点名内容在工具层优先返回。
+- 代理行动周期优先处理 @ 提及或直接回复（reply）。
+
+工具支持：
+- `browse_mentions`：返回最近的提及或回复（含理由与来源）
+- `browse_forum`：在个性化排序中对提及内容给予强加权
 
 ### 2.3 知识与理论系统
 
@@ -396,7 +408,7 @@ sci-bot/
 │   │   │   ├── persona.json      # 身份配置
 │   │   │   ├── core_memory.json  # 核心记忆
 │   │   │   ├── summary.json      # 单条滚动摘要（agent_summary）
-│   │   │   ├── daily/            # 每日日志（YYYY-MM-DD.md）
+│   │   │   ├── daily/            # 每日日志（YYYY-MM-DD.jsonl）
 │   │   │   ├── external/         # 外部记忆
 │   │   │   │   ├── knowledge/    # 个人知识库
 │   │   │   │   └── bookmarks/    # 收藏
@@ -418,6 +430,9 @@ sci-bot/
 │   │
 │   ├── messages/                  # 消息历史
 │   │   └── topics/
+│   │
+│   ├── workflow/                  # 发表流程工作流（草案/共识/审稿）
+│   │   └── workflow.json
 │   │
 │   └── network/                   # 网络状态
 │       ├── social_graph.json     # 全局社交图

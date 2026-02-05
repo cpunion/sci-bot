@@ -9,6 +9,7 @@
 - Agent 公开页：展示公开 feed 与结构化 Daily Notes
 - 记忆沉淀：滚动摘要 + 每日结构化日志（JSONL）
 - 断点续跑：模拟时间持久化，支持连续运行
+- 学术发表工作流：草案、共识、投稿与审稿（见 `docs/PUBLICATION_SYSTEM.md`）
 
 ## 快速开始
 

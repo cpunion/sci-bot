@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"math"
 	"math/rand"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -64,6 +65,7 @@ type PostSummary struct {
 	Score      int    `json:"score"`
 	Comments   int    `json:"comments"`
 	Abstract   string `json:"abstract,omitempty"`
+	Mentioned  bool   `json:"mentioned,omitempty"`
 }
 
 // BrowseForumTool creates the browse forum tool.
@@ -90,6 +92,7 @@ func (ft *ForumToolset) BrowseForumTool() (tool.Tool, error) {
 				Score:      p.Score,
 				Comments:   p.Comments,
 				Abstract:   p.Abstract,
+				Mentioned:  ft.postMentionsAgent(p),
 			})
 		}
 
@@ -176,6 +179,99 @@ func (ft *ForumToolset) ReadPostTool() (tool.Tool, error) {
 	}, handler)
 }
 
+// --- Mentions Tool ---
+
+// BrowseMentionsInput is the input for browsing mentions.
+type BrowseMentionsInput struct {
+	// Limit number of mentions to return
+	Limit int `json:"limit,omitempty"`
+}
+
+// MentionSummary is a summary of a mention.
+type MentionSummary struct {
+	PostID      string `json:"post_id"`
+	CommentID   string `json:"comment_id,omitempty"`
+	ParentID    string `json:"parent_id,omitempty"`
+	AuthorName  string `json:"author_name"`
+	Subreddit   string `json:"subreddit"`
+	Excerpt     string `json:"excerpt"`
+	IsComment   bool   `json:"is_comment"`
+	PublishedAt string `json:"published_at"`
+	Reason      string `json:"reason"`
+}
+
+// BrowseMentionsOutput is the output of browsing mentions.
+type BrowseMentionsOutput struct {
+	Mentions []MentionSummary `json:"mentions"`
+}
+
+// BrowseMentionsTool creates the mentions tool.
+func (ft *ForumToolset) BrowseMentionsTool() (tool.Tool, error) {
+	handler := func(ctx tool.Context, input BrowseMentionsInput) (BrowseMentionsOutput, error) {
+		if ft.forum == nil {
+			return BrowseMentionsOutput{}, nil
+		}
+		limit := input.Limit
+		if limit <= 0 || limit > 30 {
+			limit = 10
+		}
+
+		items := make([]mentionItem, 0)
+		for _, pub := range ft.forum.AllPublications() {
+			if pub == nil {
+				continue
+			}
+			reason := ft.mentionReason(pub)
+			if reason == "" {
+				continue
+			}
+			items = append(items, mentionItem{
+				pub:    pub,
+				reason: reason,
+			})
+		}
+
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].pub.PublishedAt.After(items[j].pub.PublishedAt)
+		})
+
+		if limit > len(items) {
+			limit = len(items)
+		}
+
+		out := make([]MentionSummary, 0, limit)
+		for _, item := range items[:limit] {
+			pub := item.pub
+			subreddit := string(pub.Subreddit)
+			if subreddit == "" {
+				subreddit = string(types.SubGeneral)
+			}
+			excerpt := pub.Content
+			if len(excerpt) > 180 {
+				excerpt = excerpt[:180] + "..."
+			}
+			out = append(out, MentionSummary{
+				PostID:      ft.rootPostID(pub),
+				CommentID:   ft.commentID(pub),
+				ParentID:    pub.ParentID,
+				AuthorName:  pub.AuthorName,
+				Subreddit:   subreddit,
+				Excerpt:     strings.TrimSpace(excerpt),
+				IsComment:   pub.IsComment,
+				PublishedAt: pub.PublishedAt.Format(time.RFC3339),
+				Reason:      item.reason,
+			})
+		}
+
+		return BrowseMentionsOutput{Mentions: out}, nil
+	}
+
+	return functiontool.New(functiontool.Config{
+		Name:        "browse_mentions",
+		Description: "查看与你相关的 @ 提及或回复，优先处理这些内容。",
+	}, handler)
+}
+
 // --- Create Post Tool ---
 
 // CreatePostInput is the input for creating a post.
@@ -207,6 +303,7 @@ func (ft *ForumToolset) CreatePostTool(agentName string) (tool.Tool, error) {
 			Content:    input.Content,
 			Abstract:   input.Abstract,
 			Subreddit:  sub,
+			Mentions:   extractMentions(input.Title + "\n" + input.Abstract + "\n" + input.Content),
 		}
 
 		if err := ft.forum.Post(pub); err != nil {
@@ -299,6 +396,7 @@ func (ft *ForumToolset) CommentTool(agentName string) (tool.Tool, error) {
 			AuthorID:   ft.agentID,
 			AuthorName: agentName,
 			Content:    input.Content,
+			Mentions:   extractMentions(input.Content),
 		}
 
 		if err := ft.forum.Comment(parentID, comment); err != nil {
@@ -332,6 +430,11 @@ func (ft *ForumToolset) AllTools(agentName string) ([]tool.Tool, error) {
 		return nil, err
 	}
 
+	mentionTool, err := ft.BrowseMentionsTool()
+	if err != nil {
+		return nil, err
+	}
+
 	createTool, err := ft.CreatePostTool(agentName)
 	if err != nil {
 		return nil, err
@@ -350,6 +453,7 @@ func (ft *ForumToolset) AllTools(agentName string) ([]tool.Tool, error) {
 	return []tool.Tool{
 		browseTool,
 		readTool,
+		mentionTool,
 		createTool,
 		voteTool,
 		commentTool,
@@ -432,9 +536,153 @@ func (ft *ForumToolset) scorePost(post *types.Publication, sortBy string) float6
 	score += ft.domainScore(post.Subreddit)
 	score += ft.relationshipScore(post.AuthorID)
 	score += ft.noveltyScore(post)
+	score += ft.mentionBoost(post)
 	score += ft.randomness()
 
 	return score
+}
+
+type mentionItem struct {
+	pub    *types.Publication
+	reason string
+}
+
+func (ft *ForumToolset) mentionBoost(post *types.Publication) float64 {
+	if post == nil || ft.forum == nil {
+		return 0
+	}
+	if ft.publicationMentionsAgent(post) {
+		return 5.0
+	}
+	comments := ft.forum.GetThreadComments(post.ID)
+	for _, c := range comments {
+		if ft.publicationMentionsAgent(c) {
+			return 4.0
+		}
+		if ft.replyTargetsAgent(c) {
+			return 2.5
+		}
+	}
+	return 0
+}
+
+func (ft *ForumToolset) postMentionsAgent(post *types.Publication) bool {
+	if post == nil || ft.forum == nil {
+		return false
+	}
+	if ft.publicationMentionsAgent(post) {
+		return true
+	}
+	comments := ft.forum.GetThreadComments(post.ID)
+	for _, c := range comments {
+		if ft.publicationMentionsAgent(c) || ft.replyTargetsAgent(c) {
+			return true
+		}
+	}
+	return false
+}
+
+func (ft *ForumToolset) mentionReason(pub *types.Publication) string {
+	if pub == nil {
+		return ""
+	}
+	if ft.publicationMentionsAgent(pub) {
+		return "mention"
+	}
+	if pub.IsComment && ft.replyTargetsAgent(pub) {
+		return "reply"
+	}
+	return ""
+}
+
+func (ft *ForumToolset) replyTargetsAgent(pub *types.Publication) bool {
+	if pub == nil || pub.ParentID == "" || ft.forum == nil {
+		return false
+	}
+	parent := ft.forum.Get(pub.ParentID)
+	if parent == nil {
+		return false
+	}
+	return parent.AuthorID == ft.agentID
+}
+
+func (ft *ForumToolset) publicationMentionsAgent(pub *types.Publication) bool {
+	if pub == nil {
+		return false
+	}
+	keys := ft.mentionKeys()
+	if len(keys) == 0 {
+		return false
+	}
+	keySet := make(map[string]struct{}, len(keys))
+	for _, k := range keys {
+		if k == "" {
+			continue
+		}
+		keySet[strings.ToLower(k)] = struct{}{}
+	}
+
+	mentions := pub.Mentions
+	if len(mentions) == 0 {
+		mentions = extractMentions(pub.Title + "\n" + pub.Abstract + "\n" + pub.Content)
+	}
+	for _, m := range mentions {
+		if _, ok := keySet[strings.ToLower(m)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (ft *ForumToolset) mentionKeys() []string {
+	keys := make([]string, 0, 3)
+	if ft.agentID != "" {
+		keys = append(keys, strings.ToLower(ft.agentID))
+	}
+	if ft.persona != nil {
+		name := strings.TrimSpace(ft.persona.Name)
+		if name != "" {
+			keys = append(keys, strings.ToLower(name))
+			keys = append(keys, strings.ToLower(strings.ReplaceAll(name, " ", "")))
+		}
+	}
+	return uniqueStrings(keys)
+}
+
+func (ft *ForumToolset) rootPostID(pub *types.Publication) string {
+	if pub == nil || ft.forum == nil {
+		return ""
+	}
+	if !pub.IsComment {
+		return pub.ID
+	}
+	parentID := pub.ParentID
+	seen := map[string]struct{}{}
+	for parentID != "" {
+		if _, ok := seen[parentID]; ok {
+			break
+		}
+		seen[parentID] = struct{}{}
+		parent := ft.forum.Get(parentID)
+		if parent == nil {
+			break
+		}
+		if !parent.IsComment {
+			return parent.ID
+		}
+		parentID = parent.ParentID
+	}
+	return pub.ParentID
+}
+
+func (ft *ForumToolset) commentID(pub *types.Publication) string {
+	if pub == nil {
+		return ""
+	}
+	if pub.IsComment {
+		return pub.ID
+	}
+	return ""
 }
 
 func (ft *ForumToolset) domainScore(sub types.Subreddit) float64 {
@@ -510,6 +758,49 @@ func (ft *ForumToolset) recordInteraction(post *types.Publication) {
 func recencyScore(t time.Time) float64 {
 	ageHours := time.Since(t).Hours()
 	return 1.0 / (1.0 + math.Max(ageHours, 0)/12.0)
+}
+
+var mentionPattern = regexp.MustCompile(`(?i)@([a-z0-9][a-z0-9_./-]{0,63})`)
+
+func extractMentions(text string) []string {
+	if text == "" {
+		return nil
+	}
+	matches := mentionPattern.FindAllStringSubmatch(text, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(matches))
+	for _, m := range matches {
+		if len(m) < 2 {
+			continue
+		}
+		token := strings.TrimSpace(m[1])
+		if token == "" {
+			continue
+		}
+		out = append(out, strings.ToLower(token))
+	}
+	return uniqueStrings(out)
+}
+
+func uniqueStrings(items []string) []string {
+	if len(items) == 0 {
+		return items
+	}
+	seen := make(map[string]struct{}, len(items))
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+	return out
 }
 
 func personaSubreddits(p *types.Persona) map[types.Subreddit]bool {
