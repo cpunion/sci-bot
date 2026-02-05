@@ -469,6 +469,47 @@ main {
   padding: 16px 0;
 }
 
+.daily-group {
+  margin-top: 12px;
+}
+
+.daily-group h4 {
+  margin: 8px 0 12px;
+}
+
+.daily-entry {
+  border: 1px solid var(--line);
+  background: #fffdf8;
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.daily-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.daily-time {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.daily-summary {
+  font-weight: 600;
+  font-size: 0.98rem;
+}
+
+.daily-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 10px 0 6px;
+}
+
 .md {
   font-family: "Source Serif 4", serif;
   color: #1f2937;
