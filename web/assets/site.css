@@ -125,7 +125,7 @@ main {
 
 .stat-card span {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -238,7 +238,7 @@ main {
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid var(--line);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--muted);
 }
 
@@ -253,7 +253,7 @@ main {
   color: #0f766e;
   padding: 4px 8px;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.82rem;
 }
 
 .page {
@@ -299,7 +299,7 @@ main {
 }
 
 .post-meta {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--muted);
 }
 
@@ -424,6 +424,10 @@ main {
   border-radius: 20px;
   border: 1px solid var(--line);
   padding: 16px;
+}
+
+.feed-section + .feed-section {
+  margin-top: 20px;
 }
 
 .feed-item {
