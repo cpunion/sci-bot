@@ -47,6 +47,7 @@ type ADKScheduler struct {
 	logger          EventLogger
 	simTime         time.Time
 	simStep         time.Duration
+	agentsPerTick   int
 
 	// Stats
 	ticks       int
@@ -77,6 +78,7 @@ type ADKSchedulerConfig struct {
 	Logger          EventLogger
 	SimStep         time.Duration
 	StartTime       time.Time
+	AgentsPerTick   int
 }
 
 // NewADKScheduler creates a new ADK-based scheduler.
@@ -109,6 +111,7 @@ func NewADKScheduler(cfg ADKSchedulerConfig) *ADKScheduler {
 		logger:          cfg.Logger,
 		simTime:         startTime,
 		simStep:         simStep,
+		agentsPerTick:   maxInt(cfg.AgentsPerTick, 1),
 		actionStats:     make(map[string]int),
 	}
 }
@@ -307,50 +310,65 @@ func (s *ADKScheduler) RunTick(ctx context.Context) error {
 		return nil
 	}
 
-	selectedID := ids[rand.Intn(len(ids))]
-	ar := s.runners[selectedID]
-
-	// Generate a prompt based on random action
-	prompt := s.selectActionPrompt(ar)
-	s.actionStats[prompt.action]++
-
-	log.Printf("[Tick %d] %s: %s", s.ticks, ar.persona.Name, prompt.action)
-
-	// Run the agent
-	msg := &genai.Content{
-		Role: "user",
-		Parts: []*genai.Part{
-			{Text: prompt.text},
-		},
+	perTick := s.agentsPerTick
+	if perTick <= 0 {
+		perTick = 1
+	}
+	if perTick > len(ids) {
+		perTick = len(ids)
 	}
 
-	var responseText string
-	toolCalls := make([]string, 0)
-	toolResponses := make([]string, 0)
-	for event, err := range ar.runner.Run(ctx, ar.persona.ID, ar.sessionID, msg, agent.RunConfig{}) {
-		if err != nil {
-			log.Printf("Agent error: %v", err)
+	rand.Shuffle(len(ids), func(i, j int) {
+		ids[i], ids[j] = ids[j], ids[i]
+	})
+
+	for _, selectedID := range ids[:perTick] {
+		ar := s.runners[selectedID]
+		if ar == nil {
 			continue
 		}
-		if event != nil && event.Content != nil {
-			for _, part := range event.Content.Parts {
-				if part.Text != "" {
-					log.Printf("  [%s] %s", ar.persona.Name, truncate(part.Text, 100))
-					responseText += part.Text
-				}
-				if part.FunctionCall != nil {
-					log.Printf("  [%s] Calling: %s", ar.persona.Name, part.FunctionCall.Name)
-					toolCalls = append(toolCalls, part.FunctionCall.Name)
-				}
-				if part.FunctionResponse != nil {
-					toolResponses = append(toolResponses, part.FunctionResponse.Name)
+		// Generate a prompt based on random action
+		prompt := s.selectActionPrompt(ar)
+		s.actionStats[prompt.action]++
+
+		log.Printf("[Tick %d] %s: %s", s.ticks, ar.persona.Name, prompt.action)
+
+		// Run the agent
+		msg := &genai.Content{
+			Role: "user",
+			Parts: []*genai.Part{
+				{Text: prompt.text},
+			},
+		}
+
+		var responseText string
+		toolCalls := make([]string, 0)
+		toolResponses := make([]string, 0)
+		for event, err := range ar.runner.Run(ctx, ar.persona.ID, ar.sessionID, msg, agent.RunConfig{}) {
+			if err != nil {
+				log.Printf("Agent error: %v", err)
+				continue
+			}
+			if event != nil && event.Content != nil {
+				for _, part := range event.Content.Parts {
+					if part.Text != "" {
+						log.Printf("  [%s] %s", ar.persona.Name, truncate(part.Text, 100))
+						responseText += part.Text
+					}
+					if part.FunctionCall != nil {
+						log.Printf("  [%s] Calling: %s", ar.persona.Name, part.FunctionCall.Name)
+						toolCalls = append(toolCalls, part.FunctionCall.Name)
+					}
+					if part.FunctionResponse != nil {
+						toolResponses = append(toolResponses, part.FunctionResponse.Name)
+					}
 				}
 			}
 		}
-	}
 
-	s.updateAgentSummary(ctx, ar, prompt.text, responseText)
-	s.logEvent(ar, prompt, responseText, toolCalls, toolResponses)
+		s.updateAgentSummary(ctx, ar, prompt.text, responseText)
+		s.logEvent(ar, prompt, responseText, toolCalls, toolResponses)
+	}
 	s.simTime = s.simTime.Add(s.simStep)
 
 	return nil
@@ -392,6 +410,13 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "..."
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func (s *ADKScheduler) eligibleAgentIDs() []string {

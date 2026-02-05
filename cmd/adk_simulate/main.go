@@ -34,6 +34,7 @@ func main() {
 	logPath := flag.String("log", "./data/adk-simulation/logs.jsonl", "Path to JSONL log file")
 	turnLimit := flag.Int("turns", 10, "Per-agent turn limit before sleep")
 	graceTurns := flag.Int("grace", 3, "Grace turns after bell")
+	agentsPerTick := flag.Int("per-tick", 1, "Number of agents to run per tick")
 	agentCount := flag.Int("agents", 5, "Number of agents")
 	seed := flag.Int64("seed", time.Now().UnixNano(), "Random seed for personas")
 	flag.Parse()
@@ -82,6 +83,7 @@ func main() {
 	fmt.Printf("Agents: %d\n", *agentCount)
 	fmt.Printf("Ticks: %d\n", *ticks)
 	fmt.Printf("Step: %s\n", step.String())
+	fmt.Printf("Agents per tick: %d\n", *agentsPerTick)
 	fmt.Printf("Log: %s\n\n", *logPath)
 
 	journal := publication.NewJournal("科学前沿", filepath.Join(*dataPath, "journal"))
@@ -105,13 +107,14 @@ func main() {
 	}
 
 	sched := simulation.NewADKScheduler(simulation.ADKSchedulerConfig{
-		DataPath:   *dataPath,
-		Model:      defaultModel,
-		Logger:     logger,
-		SimStep:    *step,
-		StartTime:  startTime,
-		TurnLimit:  *turnLimit,
-		GraceTurns: *graceTurns,
+		DataPath:      *dataPath,
+		Model:         defaultModel,
+		Logger:        logger,
+		SimStep:       *step,
+		StartTime:     startTime,
+		TurnLimit:     *turnLimit,
+		GraceTurns:    *graceTurns,
+		AgentsPerTick: *agentsPerTick,
 		ModelForPersona: func(p *types.Persona) model.LLM {
 			if p.Role == types.RoleReviewer {
 				return reviewerModel
