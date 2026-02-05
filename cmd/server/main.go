@@ -33,8 +33,8 @@ type AgentInfo struct {
 }
 
 type DailyNote struct {
-	Date    string `json:"date"`
-	Content string `json:"content"`
+	Date    string       `json:"date"`
+	Content string       `json:"content"`
 	Entries []DailyEntry `json:"entries,omitempty"`
 }
 
@@ -42,6 +42,7 @@ type DailyEntry struct {
 	Timestamp string `json:"timestamp"`
 	Prompt    string `json:"prompt,omitempty"`
 	Reply     string `json:"reply,omitempty"`
+	Notes     string `json:"notes,omitempty"`
 	Raw       string `json:"raw,omitempty"`
 }
 
@@ -464,28 +465,16 @@ func loadDailyNotes(dataPath, agentID string, limit int) []DailyNote {
 			continue
 		}
 		name := entry.Name()
-		if strings.HasSuffix(name, ".jsonl") {
-			date := strings.TrimSuffix(name, ".jsonl")
-			entries, err := readDailyEntries(filepath.Join(dir, name))
-			if err != nil || len(entries) == 0 {
-				continue
-			}
-			note := &DailyNote{Date: date, Entries: entries}
-			notesByDate[date] = note
+		if !strings.HasSuffix(name, ".jsonl") {
 			continue
 		}
-		if !strings.HasSuffix(name, ".md") {
+		date := strings.TrimSuffix(name, ".jsonl")
+		entries, err := readDailyEntries(filepath.Join(dir, name))
+		if err != nil || len(entries) == 0 {
 			continue
 		}
-		date := strings.TrimSuffix(name, ".md")
-		if _, exists := notesByDate[date]; exists {
-			continue
-		}
-		content, err := os.ReadFile(filepath.Join(dir, name))
-		if err != nil {
-			continue
-		}
-		notesByDate[date] = &DailyNote{Date: date, Content: strings.TrimSpace(string(content))}
+		note := &DailyNote{Date: date, Entries: entries}
+		notesByDate[date] = note
 	}
 	notes := make([]DailyNote, 0, len(notesByDate))
 	for _, note := range notesByDate {

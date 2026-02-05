@@ -290,17 +290,6 @@ func (m *Memory) AppendDailyLog(entry string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	path := filepath.Join(dir, dateKey+".md")
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if _, err := f.WriteString(entry + "\n"); err != nil {
-		return err
-	}
-
 	jsonPath := filepath.Join(dir, dateKey+".jsonl")
 	jsonFile, err := os.OpenFile(jsonPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
@@ -319,6 +308,7 @@ type dailyLogEntry struct {
 	Timestamp string `json:"timestamp"`
 	Prompt    string `json:"prompt,omitempty"`
 	Reply     string `json:"reply,omitempty"`
+	Notes     string `json:"notes,omitempty"`
 	Raw       string `json:"raw,omitempty"`
 }
 

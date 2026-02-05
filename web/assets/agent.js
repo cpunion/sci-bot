@@ -107,59 +107,6 @@ const renderJournalSection = (approved, pending) => {
   return parts.join("");
 };
 
-const parseDailyEntries = (content = "") => {
-  const lines = content.split(/\r?\n/);
-  const entries = [];
-  let current = null;
-  const timestampRegex = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/;
-
-  lines.forEach((line) => {
-    if (timestampRegex.test(line)) {
-      if (current) entries.push(current);
-      current = { lines: [line] };
-    } else if (current) {
-      current.lines.push(line);
-    } else if (line.trim()) {
-      current = { lines: [line] };
-    }
-  });
-
-  if (current) entries.push(current);
-
-  return entries.map((entry) => {
-    const rawLine = entry.lines[0] || "";
-    const promptKey = " | prompt: ";
-    const replyKey = " | reply: ";
-    const promptIdx = rawLine.indexOf(promptKey);
-    const replyIdx = rawLine.indexOf(replyKey);
-
-    let timestamp = "";
-    let prompt = "";
-    let reply = "";
-    if (promptIdx !== -1) {
-      timestamp = rawLine.slice(0, promptIdx).trim();
-      if (replyIdx !== -1) {
-        prompt = rawLine.slice(promptIdx + promptKey.length, replyIdx).trim();
-        reply = rawLine.slice(replyIdx + replyKey.length).trim();
-      } else {
-        prompt = rawLine.slice(promptIdx + promptKey.length).trim();
-      }
-    }
-
-    const extraLines = entry.lines.slice(1).join("\n").trim();
-    if (extraLines) {
-      if (reply) {
-        reply = `${reply}\n${extraLines}`;
-      } else if (prompt) {
-        prompt = `${prompt}\n${extraLines}`;
-      }
-    }
-
-    const fallback = entry.lines.join("\n").trim();
-    return { timestamp, prompt, reply, fallback };
-  });
-};
-
 const summarizeText = (text) => {
   if (!text) return "";
   const cleaned = text.replace(/[#>*_`\\-]/g, " ").replace(/\s+/g, " ").trim();
@@ -168,39 +115,8 @@ const summarizeText = (text) => {
   return `${cleaned.slice(0, 140)}…`;
 };
 
-const renderDailyEntry = (entry) => {
-  if (!entry.prompt && !entry.reply) {
-    return `
-      <div class="daily-entry">
-        <div class="daily-header">
-          <span class="daily-time">${formatDateTime(entry.timestamp)}</span>
-          <div class="daily-summary">${summarizeText(entry.fallback)}</div>
-        </div>
-        <div class="md">${renderMarkdown(entry.fallback)}</div>
-      </div>
-    `;
-  }
-
-  const summarySource = entry.reply || entry.prompt;
-  return `
-    <div class="daily-entry">
-      <div class="daily-header">
-        <span class="daily-time">${formatDateTime(entry.timestamp)}</span>
-        <div class="daily-summary">${summarizeText(summarySource)}</div>
-      </div>
-      <div class="daily-label">Prompt</div>
-      <div class="md">${renderMarkdown(entry.prompt || "")}</div>
-      ${
-        entry.reply
-          ? `<div class="daily-label">Reply</div><div class="md">${renderMarkdown(entry.reply)}</div>`
-          : ""
-      }
-    </div>
-  `;
-};
-
 const renderStructuredEntry = (entry) => {
-  const summarySource = entry.reply || entry.prompt || entry.raw || "";
+  const summarySource = entry.reply || entry.prompt || entry.notes || entry.raw || "";
   return `
     <div class="daily-entry">
       <div class="daily-header">
@@ -218,6 +134,11 @@ const renderStructuredEntry = (entry) => {
           : ""
       }
       ${
+        entry.notes
+          ? `<div class="daily-label">Notes</div><div class="md">${renderMarkdown(entry.notes)}</div>`
+          : ""
+      }
+      ${
         !entry.prompt && !entry.reply && entry.raw
           ? `<div class="md">${renderMarkdown(entry.raw)}</div>`
           : ""
@@ -227,20 +148,19 @@ const renderStructuredEntry = (entry) => {
 };
 
 const renderNote = (note) => {
-  const structured = note.entries && note.entries.length ? note.entries : null;
-  const entries = structured || parseDailyEntries(note.content || "");
+  const entries = note.entries || [];
   if (!entries.length) {
     return `
       <div class="daily-group">
         <h4>${note.date}</h4>
-        <div class="md">${renderMarkdown(note.content || "")}</div>
+        <div class="empty">No structured notes found.</div>
       </div>
     `;
   }
   return `
     <div class="daily-group">
       <h4>${note.date}</h4>
-      ${entries.map(structured ? renderStructuredEntry : renderDailyEntry).join("")}
+      ${entries.map(renderStructuredEntry).join("")}
     </div>
   `;
 };

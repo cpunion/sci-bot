@@ -621,17 +621,6 @@ func (s *ADKScheduler) appendDailyLog(agentID, promptText, responseText, entry s
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	mdPath := filepath.Join(dir, dateKey+".md")
-	mdFile, err := os.OpenFile(mdPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		return err
-	}
-	defer mdFile.Close()
-
-	if _, err := mdFile.WriteString(entry + "\n"); err != nil {
-		return err
-	}
-
 	jsonPath := filepath.Join(dir, dateKey+".jsonl")
 	jsonFile, err := os.OpenFile(jsonPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
@@ -644,6 +633,7 @@ func (s *ADKScheduler) appendDailyLog(agentID, promptText, responseText, entry s
 		Prompt:    strings.TrimSpace(promptText),
 		Reply:     strings.TrimSpace(responseText),
 		Raw:       entry,
+		Notes:     "",
 	}
 	if err := writeJSONLine(jsonFile, record); err != nil {
 		return err
@@ -655,6 +645,7 @@ type dailyLogEntry struct {
 	Timestamp string `json:"timestamp"`
 	Prompt    string `json:"prompt,omitempty"`
 	Reply     string `json:"reply,omitempty"`
+	Notes     string `json:"notes,omitempty"`
 	Raw       string `json:"raw,omitempty"`
 }
 
