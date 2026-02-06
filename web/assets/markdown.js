@@ -16,7 +16,22 @@ const sanitizeUrl = (raw) => {
 };
 
 const inlineFormat = (text) => {
+  const protectedSegments = [];
+  const protect = (value, re) =>
+    value.replace(re, (match) => {
+      const key = `__SCIBOT_SEG_${protectedSegments.length}__`;
+      protectedSegments.push({ key, value: match });
+      return key;
+    });
+
   let out = text;
+
+  // Protect math segments so emphasis/link parsing doesn't corrupt LaTeX.
+  out = protect(out, /\$\$[\s\S]+?\$\$/g);
+  out = protect(out, /\\\[[\s\S]+?\\\]/g);
+  out = protect(out, /\\\((.+?)\\\)/g);
+  out = protect(out, /\$(?!\$)([^$\n]+?)\$/g);
+
   out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
   out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
@@ -24,6 +39,14 @@ const inlineFormat = (text) => {
     const safe = sanitizeUrl(url);
     return `<a href=\"${safe}\" target=\"_blank\" rel=\"noopener noreferrer\">${label}</a>`;
   });
+  out = out.replace(/(^|[^\w])@(agent-[A-Za-z0-9_-]+)/g, (_match, prefix, id) => {
+    return `${prefix}<a class="mention" href="/agent/${id}">@${id}</a>`;
+  });
+
+  for (const seg of protectedSegments) {
+    out = out.split(seg.key).join(seg.value);
+  }
+
   return out;
 };
 
@@ -128,4 +151,23 @@ export const renderMarkdown = (raw = "") => {
   }
 
   return out.join("\n");
+};
+
+export const typesetMath = (root = document.body) => {
+  const fn = window?.renderMathInElement;
+  if (typeof fn !== "function" || !root) return;
+  try {
+    fn(root, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "\\[", right: "\\]", display: true },
+        { left: "$", right: "$", display: false },
+        { left: "\\(", right: "\\)", display: false },
+      ],
+      ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code"],
+      throwOnError: false,
+    });
+  } catch (_err) {
+    // Ignore typesetting errors; keep raw text visible.
+  }
 };

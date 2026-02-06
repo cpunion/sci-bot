@@ -268,6 +268,23 @@ main {
   gap: 16px;
 }
 
+#feed-root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.event-details {
+  margin-top: 10px;
+}
+
+.event-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
 .forum-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
@@ -533,6 +550,15 @@ main {
 .md a {
   color: var(--accent);
   font-weight: 600;
+}
+
+.md a.mention {
+  color: var(--accent-2);
+  background: rgba(180, 83, 9, 0.12);
+  border: 1px solid rgba(180, 83, 9, 0.18);
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 700;
 }
 
 .md code {

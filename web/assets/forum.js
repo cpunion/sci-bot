@@ -1,4 +1,4 @@
-import { renderMarkdown } from "./markdown.js";
+import { renderMarkdown, typesetMath } from "./markdown.js";
 
 const forumContent = document.getElementById("forum-content");
 const subredditList = document.getElementById("subreddit-list");
@@ -48,6 +48,7 @@ const renderPostList = (posts) => {
     `
     )
     .join("");
+  typesetMath(forumContent);
 };
 
 const sortByScoreThenTime = (items) => {
@@ -129,6 +130,7 @@ const renderPostDetail = (post, comments) => {
       ${commentList}
     </section>
   `;
+  typesetMath(forumContent);
 };
 
 const renderSubreddits = (stats, active) => {

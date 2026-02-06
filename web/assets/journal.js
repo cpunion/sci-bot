@@ -1,4 +1,4 @@
-import { renderMarkdown } from "./markdown.js";
+import { renderMarkdown, typesetMath } from "./markdown.js";
 
 const journalList = document.getElementById("journal-list");
 const searchInput = document.getElementById("journal-search");
@@ -47,6 +47,7 @@ const render = () => {
     `
     )
     .join("");
+  typesetMath(journalList);
 };
 
 const init = async () => {

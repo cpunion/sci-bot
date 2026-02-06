@@ -1,4 +1,4 @@
-import { renderMarkdown } from "./markdown.js";
+import { renderMarkdown, typesetMath } from "./markdown.js";
 
 const root = document.getElementById("agent-root");
 
@@ -79,6 +79,7 @@ const renderAgent = (detail) => {
       ${dailyNotes.length ? dailyNotes.map(renderNote).join("") : `<div class="empty">No public notes yet.</div>`}
     </section>
   `;
+  typesetMath(root);
 };
 
 const renderFeedItem = (item) => {

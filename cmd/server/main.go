@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -72,6 +73,28 @@ type JournalResponse struct {
 	Pending  []*types.Publication `json:"pending"`
 }
 
+type FeedEvent struct {
+	Timestamp      time.Time `json:"timestamp"`
+	SimTime        time.Time `json:"sim_time"`
+	Tick           int       `json:"tick"`
+	AgentID        string    `json:"agent_id"`
+	AgentName      string    `json:"agent_name"`
+	Action         string    `json:"action"`
+	Prompt         string    `json:"prompt"`
+	Response       string    `json:"response"`
+	ToolCalls      []string  `json:"tool_calls,omitempty"`
+	ToolResponses  []string  `json:"tool_responses,omitempty"`
+	TurnCount      int       `json:"turn_count"`
+	BellRung       bool      `json:"bell_rung"`
+	GraceRemaining int       `json:"grace_remaining"`
+	Sleeping       bool      `json:"sleeping"`
+}
+
+type FeedResponse struct {
+	Log    string      `json:"log"`
+	Events []FeedEvent `json:"events"`
+}
+
 func main() {
 	addr := flag.String("addr", ":8061", "Listen address")
 	dataPath := flag.String("data", "./data/adk-simulation", "Data directory")
@@ -85,7 +108,7 @@ func main() {
 		if r.Method != http.MethodGet {
 			return nil, http.StatusMethodNotAllowed, errors.New("method not allowed")
 		}
-		agents, err := loadAgents(*agentsPath)
+		agents, err := loadAgentsMerged(*dataPath, *agentsPath)
 		if err != nil {
 			return nil, http.StatusInternalServerError, err
 		}
@@ -132,7 +155,7 @@ func main() {
 		if id == "" {
 			return nil, http.StatusBadRequest, errors.New("missing agent id")
 		}
-		agent, err := loadAgent(*agentsPath, id)
+		agent, err := loadAgentMerged(*dataPath, *agentsPath, id)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				return nil, http.StatusNotFound, err
@@ -169,6 +192,37 @@ func main() {
 			JournalApproved: approved,
 			JournalPending:  pending,
 			DailyNotes:      dailyNotes,
+		}, http.StatusOK, nil
+	}))
+
+	mux.HandleFunc("/api/feed", withJSON(func(w http.ResponseWriter, r *http.Request) (any, int, error) {
+		if r.Method != http.MethodGet {
+			return nil, http.StatusMethodNotAllowed, errors.New("method not allowed")
+		}
+
+		limit := parseLimit(r.URL.Query().Get("limit"), 200, 1, 2000)
+		logPath, logName, err := resolveFeedLog(*dataPath, r.URL.Query().Get("log"))
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil, http.StatusNotFound, err
+			}
+			return nil, http.StatusBadRequest, err
+		}
+
+		events, err := loadFeedEvents(logPath, limit)
+		if err != nil {
+			return nil, http.StatusInternalServerError, err
+		}
+		sort.SliceStable(events, func(i, j int) bool {
+			if events[i].SimTime.Equal(events[j].SimTime) {
+				return events[i].Timestamp.After(events[j].Timestamp)
+			}
+			return events[i].SimTime.After(events[j].SimTime)
+		})
+
+		return FeedResponse{
+			Log:    logName,
+			Events: events,
 		}, http.StatusOK, nil
 	}))
 
@@ -248,6 +302,7 @@ func main() {
 	mux.HandleFunc("/forum", serveStaticFile(*webPath, "forum.html"))
 	mux.HandleFunc("/journal", serveStaticFile(*webPath, "journal.html"))
 	mux.HandleFunc("/agent/", serveStaticFile(*webPath, "agent.html"))
+	mux.HandleFunc("/feed", serveStaticFile(*webPath, "feed.html"))
 
 	mux.Handle("/", serveStaticDir(*webPath))
 
@@ -322,6 +377,47 @@ func loadJournal(dataPath string) (*publication.Journal, error) {
 	return journal, nil
 }
 
+func loadAgentsMerged(dataPath, agentsPath string) ([]AgentInfo, error) {
+	ids := make(map[string]struct{})
+
+	for _, path := range []string{
+		agentsPath,
+		filepath.Join(dataPath, "agents"),
+	} {
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			ids[entry.Name()] = struct{}{}
+		}
+	}
+
+	agents := make([]AgentInfo, 0, len(ids))
+	for id := range ids {
+		agent, err := loadAgentMerged(dataPath, agentsPath, id)
+		if err != nil {
+			continue
+		}
+		agents = append(agents, agent)
+	}
+
+	sort.Slice(agents, func(i, j int) bool {
+		if agents[i].Role != agents[j].Role {
+			return agents[i].Role < agents[j].Role
+		}
+		if agents[i].Name != agents[j].Name {
+			return agents[i].Name < agents[j].Name
+		}
+		return agents[i].ID < agents[j].ID
+	})
+
+	return agents, nil
+}
+
 func loadAgents(agentsPath string) ([]AgentInfo, error) {
 	entries, err := os.ReadDir(agentsPath)
 	if err != nil {
@@ -357,6 +453,23 @@ func countAgentDirs(path string) (int, error) {
 	return count, nil
 }
 
+func loadAgentMerged(dataPath, agentsPath, id string) (AgentInfo, error) {
+	agent, err := loadAgent(agentsPath, id)
+	if err == nil && agent.ID != "" {
+		return agent, nil
+	}
+
+	fallback, fallbackErr := loadAgentFromState(dataPath, id)
+	if fallbackErr == nil && fallback.ID != "" {
+		return fallback, nil
+	}
+
+	if err == nil {
+		return AgentInfo{}, fallbackErr
+	}
+	return AgentInfo{}, err
+}
+
 func loadAgent(agentsPath, id string) (AgentInfo, error) {
 	identityPath := filepath.Join(agentsPath, id, "IDENTITY.md")
 	data, err := os.ReadFile(identityPath)
@@ -368,6 +481,56 @@ func loadAgent(agentsPath, id string) (AgentInfo, error) {
 		info.ID = id
 	}
 	return info, nil
+}
+
+func loadAgentFromState(dataPath, id string) (AgentInfo, error) {
+	statePath := filepath.Join(dataPath, "agents", id, "state.json")
+	data, err := os.ReadFile(statePath)
+	if err != nil {
+		return AgentInfo{}, err
+	}
+
+	var state struct {
+		AgentID   string `json:"agent_id"`
+		AgentName string `json:"agent_name"`
+	}
+	if err := json.Unmarshal(data, &state); err != nil {
+		return AgentInfo{}, err
+	}
+
+	info := AgentInfo{
+		ID:   strings.TrimSpace(state.AgentID),
+		Name: strings.TrimSpace(state.AgentName),
+		Role: roleFromID(id),
+	}
+	if info.ID == "" {
+		info.ID = id
+	}
+	if info.Name == "" {
+		info.Name = id
+	}
+	if info.Role == "" {
+		info.Role = "agent"
+	}
+
+	return info, nil
+}
+
+func roleFromID(id string) string {
+	// Convention: agent-<role>-<n>
+	if strings.HasPrefix(id, "agent-") {
+		parts := strings.Split(id, "-")
+		if len(parts) >= 3 {
+			return parts[1]
+		}
+	}
+	roles := []string{"reviewer", "explorer", "builder", "synthesizer", "communicator"}
+	for _, role := range roles {
+		if strings.Contains(id, role) {
+			return role
+		}
+	}
+	return ""
 }
 
 func parseIdentity(content string) AgentInfo {
@@ -568,6 +731,119 @@ func readDailyEntries(path string) ([]DailyEntry, error) {
 			continue
 		}
 		out = append(out, entry)
+	}
+	return out, nil
+}
+
+func resolveFeedLog(dataPath, requested string) (path string, name string, err error) {
+	requested = strings.TrimSpace(requested)
+	if requested != "" {
+		name = filepath.Base(requested)
+		if name != requested {
+			return "", "", fmt.Errorf("invalid log path")
+		}
+		if !strings.HasPrefix(name, "logs") || !strings.HasSuffix(name, ".jsonl") {
+			return "", "", fmt.Errorf("invalid log file")
+		}
+		path = filepath.Join(dataPath, name)
+		st, statErr := os.Stat(path)
+		if statErr != nil {
+			return "", "", statErr
+		}
+		if st.IsDir() {
+			return "", "", fmt.Errorf("log is a directory")
+		}
+		return path, name, nil
+	}
+
+	entries, err := os.ReadDir(dataPath)
+	if err != nil {
+		return "", "", err
+	}
+
+	var newestName string
+	var newestMod time.Time
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		n := entry.Name()
+		if !strings.HasPrefix(n, "logs") || !strings.HasSuffix(n, ".jsonl") {
+			continue
+		}
+		info, infoErr := entry.Info()
+		if infoErr != nil {
+			continue
+		}
+		if newestName == "" || info.ModTime().After(newestMod) {
+			newestName = n
+			newestMod = info.ModTime()
+		}
+	}
+
+	if newestName == "" {
+		return "", "", os.ErrNotExist
+	}
+
+	return filepath.Join(dataPath, newestName), newestName, nil
+}
+
+func loadFeedEvents(path string, limit int) ([]FeedEvent, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	if limit > 2000 {
+		limit = 2000
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Use a ring buffer so we don't keep the whole log in memory.
+	ring := make([]FeedEvent, limit)
+	idx := 0
+	n := 0
+
+	scanner := bufio.NewScanner(file)
+	// JSONL lines can be large because prompt/response are logged verbatim.
+	scanner.Buffer(make([]byte, 0, 256*1024), 8*1024*1024)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var ev FeedEvent
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			// File may be actively appended; ignore partial lines.
+			continue
+		}
+		ring[idx] = ev
+		idx = (idx + 1) % limit
+		if n < limit {
+			n++
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	out := make([]FeedEvent, 0, n)
+	if n == 0 {
+		return out, nil
+	}
+
+	if n < limit {
+		out = append(out, ring[:n]...)
+		return out, nil
+	}
+
+	// Oldest entry is at idx when the ring is full.
+	for i := 0; i < limit; i++ {
+		out = append(out, ring[(idx+i)%limit])
 	}
 	return out, nil
 }
