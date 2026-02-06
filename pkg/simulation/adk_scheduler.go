@@ -213,6 +213,9 @@ func (s *ADKScheduler) AddAgent(ctx context.Context, persona *types.Persona) err
 		Model:       modelForAgent,
 		Description: fmt.Sprintf("%s - %s", persona.Name, persona.Role),
 		Instruction: instruction,
+		// Avoid unbounded prompt growth from long multi-tick chat history. The
+		// agent keeps long-term context via `agent_summary` instead.
+		IncludeContents: llmagent.IncludeContentsNone,
 		GenerateContentConfig: &genai.GenerateContentConfig{
 			MaxOutputTokens: s.maxOutputTokens,
 		},
