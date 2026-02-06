@@ -466,33 +466,52 @@ func countAgentDirs(path string) (int, error) {
 }
 
 func loadAgentMerged(dataPath, agentsPath, id string) (AgentInfo, error) {
-	agent, err := loadAgent(agentsPath, id)
-	if err == nil && agent.ID != "" {
-		return agent, nil
+	state, stateErr := loadAgentFromState(dataPath, id)
+	cfg, cfgErr := loadAgent(agentsPath, id)
+
+	// Prefer persisted simulation state. Config identities are only trusted to
+	// enrich state when the names match, so we don't mix personas.
+	if stateErr == nil && state.ID != "" {
+		if cfgErr == nil && cfg.ID != "" {
+			cfgName := strings.TrimSpace(cfg.Name)
+			stateName := strings.TrimSpace(state.Name)
+			if stateName == "" || strings.EqualFold(cfgName, stateName) {
+				merged := cfg
+				if state.ID != "" {
+					merged.ID = state.ID
+				}
+				if state.Name != "" {
+					merged.Name = state.Name
+				}
+				if merged.Role == "" {
+					merged.Role = state.Role
+				}
+				return merged, nil
+			}
+		}
+		return state, nil
 	}
 
-	fallback, fallbackErr := loadAgentFromState(dataPath, id)
-	if fallbackErr == nil && fallback.ID != "" {
-		return fallback, nil
+	if cfgErr == nil && cfg.ID != "" {
+		return cfg, nil
 	}
 
 	// If this id doesn't exist in either config or persisted state, allow resolving
 	// an alias like agent name ("Agent-73") to the real agent id ("agent-reviewer-15").
-	if errors.Is(err, os.ErrNotExist) && errors.Is(fallbackErr, os.ErrNotExist) {
-		if resolvedID, resolvedErr := resolveAgentAlias(dataPath, agentsPath, id); resolvedErr == nil && resolvedID != "" && resolvedID != id {
-			if resolved, err := loadAgent(agentsPath, resolvedID); err == nil && resolved.ID != "" {
-				return resolved, nil
-			}
-			if resolved, err := loadAgentFromState(dataPath, resolvedID); err == nil && resolved.ID != "" {
-				return resolved, nil
-			}
+	if errors.Is(stateErr, os.ErrNotExist) && errors.Is(cfgErr, os.ErrNotExist) {
+		resolvedID, err := resolveAgentAlias(dataPath, agentsPath, id)
+		if err != nil {
+			return AgentInfo{}, err
+		}
+		if resolvedID != "" && resolvedID != id {
+			return loadAgentMerged(dataPath, agentsPath, resolvedID)
 		}
 	}
 
-	if err == nil {
-		return AgentInfo{}, fallbackErr
+	if stateErr != nil && !errors.Is(stateErr, os.ErrNotExist) {
+		return AgentInfo{}, stateErr
 	}
-	return AgentInfo{}, err
+	return AgentInfo{}, cfgErr
 }
 
 func loadAgent(agentsPath, id string) (AgentInfo, error) {
@@ -565,9 +584,9 @@ func resolveAgentAlias(dataPath, agentsPath, raw string) (string, error) {
 		return "", os.ErrNotExist
 	}
 
-	matches := make(map[string]struct{})
+	stateMatches := make(map[string]struct{})
 
-	// Prefer resolving from persisted simulation agents.
+	// Prefer resolving from persisted simulation agents (authoritative for UI).
 	if entries, err := os.ReadDir(filepath.Join(dataPath, "agents")); err == nil {
 		for _, entry := range entries {
 			if !entry.IsDir() {
@@ -579,12 +598,28 @@ func resolveAgentAlias(dataPath, agentsPath, raw string) (string, error) {
 				continue
 			}
 			if strings.EqualFold(info.Name, key) || strings.EqualFold(info.ID, key) {
-				matches[info.ID] = struct{}{}
+				stateMatches[info.ID] = struct{}{}
 			}
 		}
 	}
 
-	// Also allow resolving from config identities (useful for manually curated agents).
+	if len(stateMatches) == 1 {
+		for id := range stateMatches {
+			return id, nil
+		}
+	}
+	if len(stateMatches) > 1 {
+		ids := make([]string, 0, len(stateMatches))
+		for id := range stateMatches {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		return "", fmt.Errorf("ambiguous agent alias %q (matches: %s)", key, strings.Join(ids, ", "))
+	}
+
+	cfgMatches := make(map[string]struct{})
+
+	// Fall back to config identities (useful for manually curated agents not present in state).
 	if entries, err := os.ReadDir(agentsPath); err == nil {
 		for _, entry := range entries {
 			if !entry.IsDir() {
@@ -597,27 +632,27 @@ func resolveAgentAlias(dataPath, agentsPath, raw string) (string, error) {
 			}
 			if strings.EqualFold(info.Name, key) || strings.EqualFold(info.ID, key) {
 				if info.ID != "" {
-					matches[info.ID] = struct{}{}
+					cfgMatches[info.ID] = struct{}{}
 				} else {
-					matches[id] = struct{}{}
+					cfgMatches[id] = struct{}{}
 				}
 			}
 		}
 	}
 
-	if len(matches) == 0 {
+	if len(cfgMatches) == 0 {
 		return "", os.ErrNotExist
 	}
-	if len(matches) > 1 {
-		ids := make([]string, 0, len(matches))
-		for id := range matches {
+	if len(cfgMatches) > 1 {
+		ids := make([]string, 0, len(cfgMatches))
+		for id := range cfgMatches {
 			ids = append(ids, id)
 		}
 		sort.Strings(ids)
 		return "", fmt.Errorf("ambiguous agent alias %q (matches: %s)", key, strings.Join(ids, ", "))
 	}
 
-	for id := range matches {
+	for id := range cfgMatches {
 		return id, nil
 	}
 	return "", os.ErrNotExist
