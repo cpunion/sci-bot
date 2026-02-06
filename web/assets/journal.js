@@ -3,8 +3,6 @@ import { renderMarkdown, typesetMath } from "./markdown.js";
 const journalList = document.getElementById("journal-list");
 const searchInput = document.getElementById("journal-search");
 const tabs = document.getElementById("journal-tabs");
-const sidebar = document.getElementById("journal-sidebar");
-const aboutHTML = sidebar ? sidebar.innerHTML : "";
 
 const fetchJSON = async (url) => {
   const res = await fetch(url);
@@ -32,24 +30,19 @@ const formatTime = (iso) => {
 
 let journalData = { approved: [], pending: [] };
 let activeTab = "approved";
-let selectedPaperID = "";
 
 const getURLState = () => {
   const params = new URLSearchParams(window.location.search);
   const tab = (params.get("tab") || "").trim();
-  const paper = (params.get("paper") || "").trim();
   if (tab === "approved" || tab === "pending") {
     activeTab = tab;
   }
-  selectedPaperID = paper;
 };
 
-const setURLState = (tab, paperID, replace = false) => {
+const setURLState = (tab, replace = false) => {
   const params = new URLSearchParams(window.location.search);
   if (tab) params.set("tab", tab);
   else params.delete("tab");
-  if (paperID) params.set("paper", paperID);
-  else params.delete("paper");
   const qs = params.toString();
   const url = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
   if (replace) {
@@ -57,61 +50,6 @@ const setURLState = (tab, paperID, replace = false) => {
     return;
   }
   window.history.pushState({}, "", url);
-};
-
-const findPaper = (paperID) => {
-  if (!paperID) return null;
-  for (const p of journalData.approved || []) {
-    if (p && p.id === paperID) return { paper: p, section: "approved" };
-  }
-  for (const p of journalData.pending || []) {
-    if (p && p.id === paperID) return { paper: p, section: "pending" };
-  }
-  return null;
-};
-
-const renderSidebar = () => {
-  if (!sidebar) return;
-
-  const match = findPaper(selectedPaperID);
-  if (!selectedPaperID) {
-    sidebar.innerHTML = aboutHTML;
-    return;
-  }
-  if (!match) {
-    sidebar.innerHTML = `
-      <div class="sidebar-top">
-        <h4>Paper Not Found</h4>
-        <button class="tab-btn" type="button" data-action="close-paper">Back</button>
-      </div>
-      <p class="post-meta">No journal item found for <code>${escapeHTML(selectedPaperID)}</code>.</p>
-    `;
-    return;
-  }
-
-  const { paper, section } = match;
-  const statusLabel = section === "approved" ? "Published" : "Pending Review";
-  const date = formatTime(paper.published_at);
-  const dateLabel = date ? ` • ${date}` : "";
-  const abstract = paper.abstract ? `<div class="md">${renderMarkdown(paper.abstract)}</div>` : "";
-
-  sidebar.innerHTML = `
-    <div class="sidebar-top">
-      <h4>Paper</h4>
-      <button class="tab-btn" type="button" data-action="close-paper">Back</button>
-    </div>
-    <div class="paper-detail">
-      <h3>${escapeHTML(paper.title || "Untitled")}</h3>
-      <div class="post-meta">${escapeHTML(paper.author_name || "Unknown")} • <span class="badge">${escapeHTML(statusLabel)}</span>${escapeHTML(
-        dateLabel
-      )}</div>
-      ${abstract ? `<div class="daily-label">Abstract</div>${abstract}` : ""}
-      <div class="daily-label">Content</div>
-      <div class="md">${renderMarkdown(paper.content || "")}</div>
-      <div class="post-meta">ID: <code>${escapeHTML(paper.id || "")}</code>${paper.draft_id ? ` • draft: <code>${escapeHTML(paper.draft_id)}</code>` : ""}</div>
-    </div>
-  `;
-  typesetMath(sidebar);
 };
 
 const render = () => {
@@ -128,18 +66,30 @@ const render = () => {
     return;
   }
 
+  const statusLabel = activeTab === "approved" ? "Published" : "Pending";
+
   journalList.innerHTML = list
-    .map(
-      (paper) => `
-      <article class="paper clickable ${paper.id === selectedPaperID ? "is-selected" : ""}" data-paper-id="${escapeHTML(paper.id || "")}">
-        <h3>${escapeHTML(paper.title || "Untitled")}</h3>
-        <div class="authors">${escapeHTML(paper.author_name || "Unknown")} • ${escapeHTML(formatTime(paper.published_at))}</div>
-        <div class="md">${renderMarkdown(paper.abstract || paper.content || "")}</div>
-        <div class="post-meta">${paper.subreddit ? `Topic: ${paper.subreddit}` : ""}</div>
-      </article>
-    `
-    )
+    .map((paper) => {
+      const paperID = paper.id || "";
+      const href = paperID ? `/paper/${encodeURIComponent(paperID)}` : "#";
+      const date = formatTime(paper.published_at);
+      const dateLabel = date ? ` • ${escapeHTML(date)}` : "";
+
+      return `
+        <article class="paper clickable" data-paper-url="${escapeHTML(href)}">
+          <div class="paper-topline">
+            <a class="tab-btn" href="${escapeHTML(href)}">Open</a>
+            <span class="badge">${escapeHTML(statusLabel)}</span>
+          </div>
+          <h3><a href="${escapeHTML(href)}">${escapeHTML(paper.title || "Untitled")}</a></h3>
+          <div class="authors">${escapeHTML(paper.author_name || "Unknown")}${dateLabel}</div>
+          <div class="md">${renderMarkdown(paper.abstract || paper.content || "")}</div>
+          <div class="post-meta">${paper.subreddit ? `Topic: ${paper.subreddit}` : ""}</div>
+        </article>
+      `;
+    })
     .join("");
+
   typesetMath(journalList);
 };
 
@@ -148,20 +98,13 @@ const init = async () => {
     getURLState();
     const data = await fetchJSON("/api/journal");
     journalData = data;
-    if (selectedPaperID) {
-      const match = findPaper(selectedPaperID);
-      if (match && match.section && match.section !== activeTab) {
-        activeTab = match.section;
-      }
-    }
 
     [...tabs.querySelectorAll(".tab-btn")].forEach((tab) => {
       tab.classList.toggle("active", tab.dataset.tab === activeTab);
     });
     render();
-    renderSidebar();
   } catch (err) {
-    journalList.innerHTML = `<div class="empty">${err.message}</div>`;
+    journalList.innerHTML = `<div class="empty">${escapeHTML(err.message)}</div>`;
   }
 };
 
@@ -176,38 +119,26 @@ tabs.addEventListener("click", (event) => {
   [...tabs.querySelectorAll(".tab-btn")].forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.tab === activeTab);
   });
-  setURLState(activeTab, selectedPaperID);
+  setURLState(activeTab);
   render();
 });
 
 journalList.addEventListener("click", (event) => {
-  const card = event.target.closest("[data-paper-id]");
+  if (event.target.closest("a")) return;
+  const card = event.target.closest("[data-paper-url]");
   if (!card) return;
-  const paperID = card.dataset.paperId;
-  if (!paperID) return;
-  selectedPaperID = paperID;
-  setURLState(activeTab, selectedPaperID);
-  render();
-  renderSidebar();
+  const url = card.dataset.paperUrl;
+  if (!url || url === "#") return;
+  window.location.href = url;
 });
-
-if (sidebar) {
-  sidebar.addEventListener("click", (event) => {
-    const btn = event.target.closest("button");
-    if (!btn) return;
-    if (btn.dataset.action === "close-paper") {
-      selectedPaperID = "";
-      setURLState(activeTab, "", false);
-      render();
-      renderSidebar();
-    }
-  });
-}
 
 window.addEventListener("popstate", () => {
   getURLState();
+  [...tabs.querySelectorAll(".tab-btn")].forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.tab === activeTab);
+  });
   render();
-  renderSidebar();
 });
 
 init();
+

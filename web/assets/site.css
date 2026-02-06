@@ -422,6 +422,14 @@ main {
   outline: 2px solid rgba(15, 118, 110, 0.35);
 }
 
+.paper-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .paper h3 {
   margin: 0 0 6px;
 }

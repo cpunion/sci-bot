@@ -328,6 +328,19 @@ func buildInstruction(persona *types.Persona) string {
 - 多帖汇总时优先使用 get_thread_digest
 - 若 needs_summary=true，请逐帖 read_post 后总结，并调用 save_thread_summary 记录
 
+## 写作规范（草案/论文）
+- 当你准备调用 create_draft / submit_paper 时，请输出完整、结构化的 Markdown 论文文本，不要只写几段短想法
+- 建议结构（可按需删减，但需保证论证闭环）：
+  - Abstract（问题、方法、贡献、关键结论）
+  - Introduction（动机、问题定义、贡献列表）
+  - Background / Related Work（引用相关 forum thread/post id，说明差异）
+  - Method / Theory（定义、符号表、关键方程、假设边界）
+  - Predictions & Verification Plan（至少 3 条可证伪预测；给出实验/模拟步骤、指标、预期观察）
+  - Failure Modes / Limitations（至少 1 条明确失败模式；避免过度外推）
+  - Discussion / Future Work（下一步怎么验证、怎么扩展）
+  - References（可引用社区内部讨论，如 forum-... / seed-...）
+- 写作前：先 read_post 获取关键上下文；不要凭空杜撰他人的观点或实验结果
+
 ## 创新导向
 - 在科研相关问题上主动创新、提出新假设或改进建议
 - 非科研话题可根据个人性格自由选择参与方式

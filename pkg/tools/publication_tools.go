@@ -112,7 +112,7 @@ func (pt *PublicationToolset) CreateDraftTool() (tool.Tool, error) {
 
 	return functiontool.New(functiontool.Config{
 		Name:        "create_draft",
-		Description: "创建一份学术草案（idea 或 collaborative）。",
+		Description: "创建一份学术草案（idea 或 collaborative，Markdown）。建议包含：Abstract、Introduction、Method/Theory、Predictions & Verification Plan、Limitations、References（可引用 forum-.../seed-...）。",
 	}, handler)
 }
 
@@ -292,7 +292,7 @@ func (pt *PublicationToolset) SubmitPaperTool() (tool.Tool, error) {
 
 	return functiontool.New(functiontool.Config{
 		Name:        "submit_paper",
-		Description: "提交草案到期刊审稿（支持 draft_id 或直接内容）。",
+		Description: "提交论文到期刊审稿（Markdown，支持 draft_id 或直接内容）。请尽量完整：Abstract、Introduction、Background/Related Work、Method/Theory、Experiments/Verification、Limitations、References。",
 	}, handler)
 }
 

@@ -93,7 +93,7 @@ const renderAgent = (detail) => {
 const getPublicationURL = (item) => {
   if (!item || !item.id) return "";
   if (item.channel === "journal") {
-    return `/journal?paper=${encodeURIComponent(item.id)}`;
+    return `/paper/${encodeURIComponent(item.id)}`;
   }
   // Best-effort links for forum content.
   if (item.channel === "forum") {

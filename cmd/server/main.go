@@ -73,6 +73,12 @@ type JournalResponse struct {
 	Pending  []*types.Publication `json:"pending"`
 }
 
+type PaperDetailResponse struct {
+	JournalName string             `json:"journal_name"`
+	Status      string             `json:"status"` // published | pending
+	Paper       *types.Publication `json:"paper"`
+}
+
 type FeedEvent struct {
 	Timestamp      time.Time `json:"timestamp"`
 	SimTime        time.Time `json:"sim_time"`
@@ -332,8 +338,45 @@ func main() {
 		}, http.StatusOK, nil
 	}))
 
+	mux.HandleFunc("/api/journal/papers/", withJSON(func(w http.ResponseWriter, r *http.Request) (any, int, error) {
+		if r.Method != http.MethodGet {
+			return nil, http.StatusMethodNotAllowed, errors.New("method not allowed")
+		}
+		journal, err := loadJournal(*dataPath)
+		if err != nil {
+			return nil, http.StatusInternalServerError, err
+		}
+		paperID := strings.TrimPrefix(r.URL.Path, "/api/journal/papers/")
+		paperID = strings.Trim(paperID, "/")
+		if paperID == "" {
+			return nil, http.StatusBadRequest, errors.New("missing paper id")
+		}
+
+		var paper *types.Publication
+		status := ""
+		if journal != nil {
+			if p, ok := journal.Publications[paperID]; ok {
+				paper = p
+				status = "published"
+			} else if p, ok := journal.Pending[paperID]; ok {
+				paper = p
+				status = "pending"
+			}
+		}
+		if paper == nil {
+			return nil, http.StatusNotFound, fmt.Errorf("paper not found")
+		}
+
+		return PaperDetailResponse{
+			JournalName: journal.Name,
+			Status:      status,
+			Paper:       paper,
+		}, http.StatusOK, nil
+	}))
+
 	mux.HandleFunc("/forum", serveStaticFile(*webPath, "forum.html"))
 	mux.HandleFunc("/journal", serveStaticFile(*webPath, "journal.html"))
+	mux.HandleFunc("/paper/", serveStaticFile(*webPath, "paper.html"))
 	mux.HandleFunc("/agent/", serveStaticFile(*webPath, "agent.html"))
 	mux.HandleFunc("/feed", serveStaticFile(*webPath, "feed.html"))
 
