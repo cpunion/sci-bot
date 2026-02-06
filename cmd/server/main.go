@@ -169,13 +169,17 @@ func main() {
 			}
 			return nil, http.StatusInternalServerError, err
 		}
+		resolvedID := agent.ID
+		if resolvedID == "" {
+			resolvedID = id
+		}
 
 		forum, _ := loadForum(*dataPath)
 		journal, _ := loadJournal(*dataPath)
 
 		var forumPosts, forumComments []*types.Publication
 		if forum != nil {
-			byAuthor := forum.GetByAuthor(id)
+			byAuthor := forum.GetByAuthor(resolvedID)
 			for _, p := range byAuthor {
 				if p.IsComment {
 					forumComments = append(forumComments, p)
@@ -187,10 +191,10 @@ func main() {
 			sortPublicationsByTimeDesc(forumComments)
 		}
 
-		approved := filterJournalByAuthor(journal, id, true)
-		pending := filterJournalByAuthor(journal, id, false)
+		approved := filterJournalByAuthor(journal, resolvedID, true)
+		pending := filterJournalByAuthor(journal, resolvedID, false)
 
-		dailyNotes := loadDailyNotes(*dataPath, id, 10)
+		dailyNotes := loadDailyNotes(*dataPath, resolvedID, 10)
 
 		return AgentDetail{
 			Agent:           agent,
@@ -472,6 +476,19 @@ func loadAgentMerged(dataPath, agentsPath, id string) (AgentInfo, error) {
 		return fallback, nil
 	}
 
+	// If this id doesn't exist in either config or persisted state, allow resolving
+	// an alias like agent name ("Agent-73") to the real agent id ("agent-reviewer-15").
+	if errors.Is(err, os.ErrNotExist) && errors.Is(fallbackErr, os.ErrNotExist) {
+		if resolvedID, resolvedErr := resolveAgentAlias(dataPath, agentsPath, id); resolvedErr == nil && resolvedID != "" && resolvedID != id {
+			if resolved, err := loadAgent(agentsPath, resolvedID); err == nil && resolved.ID != "" {
+				return resolved, nil
+			}
+			if resolved, err := loadAgentFromState(dataPath, resolvedID); err == nil && resolved.ID != "" {
+				return resolved, nil
+			}
+		}
+	}
+
 	if err == nil {
 		return AgentInfo{}, fallbackErr
 	}
@@ -539,6 +556,71 @@ func roleFromID(id string) string {
 		}
 	}
 	return ""
+}
+
+func resolveAgentAlias(dataPath, agentsPath, raw string) (string, error) {
+	key := strings.TrimSpace(raw)
+	key = strings.TrimPrefix(key, "@")
+	if key == "" {
+		return "", os.ErrNotExist
+	}
+
+	matches := make(map[string]struct{})
+
+	// Prefer resolving from persisted simulation agents.
+	if entries, err := os.ReadDir(filepath.Join(dataPath, "agents")); err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			id := entry.Name()
+			info, err := loadAgentFromState(dataPath, id)
+			if err != nil {
+				continue
+			}
+			if strings.EqualFold(info.Name, key) || strings.EqualFold(info.ID, key) {
+				matches[info.ID] = struct{}{}
+			}
+		}
+	}
+
+	// Also allow resolving from config identities (useful for manually curated agents).
+	if entries, err := os.ReadDir(agentsPath); err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			id := entry.Name()
+			info, err := loadAgent(agentsPath, id)
+			if err != nil {
+				continue
+			}
+			if strings.EqualFold(info.Name, key) || strings.EqualFold(info.ID, key) {
+				if info.ID != "" {
+					matches[info.ID] = struct{}{}
+				} else {
+					matches[id] = struct{}{}
+				}
+			}
+		}
+	}
+
+	if len(matches) == 0 {
+		return "", os.ErrNotExist
+	}
+	if len(matches) > 1 {
+		ids := make([]string, 0, len(matches))
+		for id := range matches {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		return "", fmt.Errorf("ambiguous agent alias %q (matches: %s)", key, strings.Join(ids, ", "))
+	}
+
+	for id := range matches {
+		return id, nil
+	}
+	return "", os.ErrNotExist
 }
 
 func parseIdentity(content string) AgentInfo {

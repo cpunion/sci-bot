@@ -32,15 +32,21 @@ const inlineFormat = (text) => {
   out = protect(out, /\\\((.+?)\\\)/g);
   out = protect(out, /\$(?!\$)([^$\n]+?)\$/g);
 
-  out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
+  // Protect inline code spans so mention/emphasis parsing doesn't touch them.
+  out = out.replace(/`([^`]+)`/g, (_match, code) => {
+    const key = `__SCIBOT_SEG_${protectedSegments.length}__`;
+    protectedSegments.push({ key, value: `<code>${code}</code>` });
+    return key;
+  });
   out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
   out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label, url) => {
     const safe = sanitizeUrl(url);
     return `<a href=\"${safe}\" target=\"_blank\" rel=\"noopener noreferrer\">${label}</a>`;
   });
-  out = out.replace(/(^|[^\w])@(agent-[A-Za-z0-9_-]+)/g, (_match, prefix, id) => {
-    return `${prefix}<a class="mention" href="/agent/${id}">@${id}</a>`;
+  out = out.replace(/(^|[^\w])@([A-Za-z][A-Za-z0-9_-]{0,63})/g, (_match, prefix, handle) => {
+    const href = `/agent/${encodeURIComponent(handle)}`;
+    return `${prefix}<a class="mention" href="${href}">@${handle}</a>`;
   });
 
   for (const seg of protectedSegments) {
