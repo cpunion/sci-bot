@@ -203,6 +203,11 @@ func main() {
 	if err := site.WriteAgentCatalog(filepath.Join(*dataPath, "agents", "agents.json"), personas); err != nil {
 		log.Printf("Warning: failed to write agents index: %v", err)
 	}
+	// Write per-agent daily index files so static pages can link to existing days
+	// without probing and triggering many 404s.
+	if err := site.WriteDailyNotesIndexes(*dataPath); err != nil {
+		log.Printf("Warning: failed to write daily notes indexes: %v", err)
+	}
 
 	// Write a static site manifest so a purely-static frontend can discover files.
 	if err := writeStaticManifest(*dataPath, *logPath, feedIndexRel, forum, journal, personas); err != nil {

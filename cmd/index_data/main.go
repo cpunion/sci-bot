@@ -33,6 +33,9 @@ func main() {
 	if err := writeAgents(*dataPath, agents); err != nil {
 		log.Fatalf("Write agents index: %v", err)
 	}
+	if err := site.WriteDailyNotesIndexes(*dataPath); err != nil {
+		log.Fatalf("Write daily notes indexes: %v", err)
+	}
 
 	feedIndexRel := ""
 	if strings.TrimSpace(*feedDir) != "-" {
