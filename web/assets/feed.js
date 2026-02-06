@@ -39,7 +39,12 @@ const renderTools = (calls = [], responses = []) => {
     ? `<div class="daily-label">Tool Calls</div><div class="md">${renderMarkdown(calls.map((c) => `- \`${c}\``).join("\n"))}</div>`
     : "";
   const respHTML = responses.length
-    ? `<div class="daily-label">Tool Responses</div><div class="md">${renderMarkdown(responses.join("\n\n---\n\n"))}</div>`
+    ? `
+      <details class="event-tool-responses">
+        <summary>Tool Responses</summary>
+        <div class="md">${renderMarkdown(responses.join("\n\n---\n\n"))}</div>
+      </details>
+    `
     : "";
   return `${callHTML}${respHTML}`;
 };

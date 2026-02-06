@@ -285,6 +285,16 @@ main {
   margin-bottom: 10px;
 }
 
+.event-tool-responses {
+  margin-top: 10px;
+}
+
+.event-tool-responses summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .forum-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
