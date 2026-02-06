@@ -39,6 +39,7 @@ func main() {
 	logAppend := flag.Bool("log-append", true, "Append to log file instead of truncating")
 	feedDir := flag.String("feed", "feed", "Feed shards directory (relative to data directory). Set '-' to disable.")
 	feedMaxEvents := flag.Int("feed-max-events", 200, "Max events per feed shard file")
+	maxOutputTokens := flag.Int("max-output-tokens", 2048, "Max output tokens per LLM call (maps to OpenAI/OpenRouter max_tokens)")
 	turnLimit := flag.Int("turns", 10, "Per-agent turn limit before sleep")
 	graceTurns := flag.Int("grace", 3, "Grace turns after bell")
 	agentsPerTick := flag.Int("per-tick", 1, "Number of agents to run per tick")
@@ -110,6 +111,7 @@ func main() {
 	fmt.Printf("Ticks: %d\n", *ticks)
 	fmt.Printf("Step: %s\n", step.String())
 	fmt.Printf("Agents per tick: %d\n", *agentsPerTick)
+	fmt.Printf("Max output tokens: %d\n", *maxOutputTokens)
 	fmt.Printf("Checkpoint every: %d\n", *checkpointEvery)
 	if strings.TrimSpace(*logPath) != "" {
 		fmt.Printf("Log: %s\n", *logPath)
@@ -158,6 +160,7 @@ func main() {
 		GraceTurns:      *graceTurns,
 		AgentsPerTick:   *agentsPerTick,
 		CheckpointEvery: *checkpointEvery,
+		MaxOutputTokens: int32(*maxOutputTokens),
 		ModelForPersona: func(p *types.Persona) model.LLM {
 			if p.Role == types.RoleReviewer {
 				return reviewerModel

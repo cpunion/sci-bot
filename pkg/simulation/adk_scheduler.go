@@ -43,6 +43,7 @@ type ADKScheduler struct {
 	// Configuration
 	model           model.LLM
 	modelForPersona func(*types.Persona) model.LLM
+	maxOutputTokens int32
 	turnLimit       int
 	graceTurns      int
 	logger          EventLogger
@@ -84,6 +85,7 @@ type ADKSchedulerConfig struct {
 	StartTime       time.Time
 	AgentsPerTick   int
 	CheckpointEvery int
+	MaxOutputTokens int32
 }
 
 // NewADKScheduler creates a new ADK-based scheduler.
@@ -111,6 +113,13 @@ func NewADKScheduler(cfg ADKSchedulerConfig) *ADKScheduler {
 		checkpointEvery = 1
 	}
 
+	// OpenAI/OpenRouter will treat an unset max_tokens as "huge". Keep a safe
+	// default so runs don't fail with "requested too many max_tokens" errors.
+	maxOutputTokens := cfg.MaxOutputTokens
+	if maxOutputTokens <= 0 {
+		maxOutputTokens = 2048
+	}
+
 	workflow := cfg.Workflow
 	if workflow == nil && cfg.DataPath != "" {
 		workflow = publication.NewWorkflow(filepath.Join(cfg.DataPath, "workflow"))
@@ -124,6 +133,7 @@ func NewADKScheduler(cfg ADKSchedulerConfig) *ADKScheduler {
 		dataPath:        cfg.DataPath,
 		model:           cfg.Model,
 		modelForPersona: cfg.ModelForPersona,
+		maxOutputTokens: maxOutputTokens,
 		turnLimit:       turnLimit,
 		graceTurns:      graceTurns,
 		logger:          cfg.Logger,
@@ -203,7 +213,10 @@ func (s *ADKScheduler) AddAgent(ctx context.Context, persona *types.Persona) err
 		Model:       modelForAgent,
 		Description: fmt.Sprintf("%s - %s", persona.Name, persona.Role),
 		Instruction: instruction,
-		Tools:       allTools,
+		GenerateContentConfig: &genai.GenerateContentConfig{
+			MaxOutputTokens: s.maxOutputTokens,
+		},
+		Tools: allTools,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create ADK agent: %w", err)
