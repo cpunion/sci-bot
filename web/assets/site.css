@@ -285,6 +285,11 @@ main {
   margin-bottom: 10px;
 }
 
+.content-link {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .event-tool-responses {
   margin-top: 10px;
 }
@@ -619,6 +624,11 @@ main {
   margin-left: 18px;
   padding-left: 12px;
   border-left: 1px dashed var(--line);
+}
+
+.comment-node:target .comment-body {
+  border-color: rgba(180, 83, 9, 0.5);
+  background: rgba(180, 83, 9, 0.08);
 }
 
 @media (max-width: 980px) {

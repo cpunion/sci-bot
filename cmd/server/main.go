@@ -88,6 +88,13 @@ type FeedEvent struct {
 	BellRung       bool      `json:"bell_rung"`
 	GraceRemaining int       `json:"grace_remaining"`
 	Sleeping       bool      `json:"sleeping"`
+
+	// Derived links for UI. Not part of the simulation log format.
+	ActorURL     string `json:"actor_url,omitempty"`
+	ContentKind  string `json:"content_kind,omitempty"`
+	ContentID    string `json:"content_id,omitempty"`
+	ContentTitle string `json:"content_title,omitempty"`
+	ContentURL   string `json:"content_url,omitempty"`
 }
 
 type FeedResponse struct {
@@ -213,6 +220,7 @@ func main() {
 		if err != nil {
 			return nil, http.StatusInternalServerError, err
 		}
+		enrichFeedEvents(*dataPath, events)
 		sort.SliceStable(events, func(i, j int) bool {
 			if events[i].SimTime.Equal(events[j].SimTime) {
 				return events[i].Timestamp.After(events[j].Timestamp)
@@ -846,6 +854,135 @@ func loadFeedEvents(path string, limit int) ([]FeedEvent, error) {
 		out = append(out, ring[(idx+i)%limit])
 	}
 	return out, nil
+}
+
+func enrichFeedEvents(dataPath string, events []FeedEvent) {
+	if len(events) == 0 {
+		return
+	}
+
+	for i := range events {
+		if events[i].AgentID != "" {
+			events[i].ActorURL = "/agent/" + events[i].AgentID
+		}
+	}
+
+	forum, err := loadForum(dataPath)
+	if err != nil || forum == nil {
+		return
+	}
+
+	postsByAuthor := make(map[string][]*types.Publication)
+	commentsByAuthor := make(map[string][]*types.Publication)
+	for _, pub := range forum.AllPublications() {
+		if pub == nil {
+			continue
+		}
+		if pub.AuthorID == "" {
+			continue
+		}
+		if pub.IsComment {
+			commentsByAuthor[pub.AuthorID] = append(commentsByAuthor[pub.AuthorID], pub)
+			continue
+		}
+		postsByAuthor[pub.AuthorID] = append(postsByAuthor[pub.AuthorID], pub)
+	}
+
+	for _, pubs := range postsByAuthor {
+		sortPublicationsByTimeDesc(pubs)
+	}
+	for _, pubs := range commentsByAuthor {
+		sortPublicationsByTimeDesc(pubs)
+	}
+
+	maxDelta := 10 * time.Minute
+	for i := range events {
+		ev := &events[i]
+		if ev.AgentID == "" {
+			continue
+		}
+		if ev.ContentURL != "" {
+			continue
+		}
+
+		// Prioritize linking to actual content created in this event.
+		if containsString(ev.ToolCalls, "create_post") {
+			if post := findClosestByTime(postsByAuthor[ev.AgentID], ev.Timestamp, maxDelta); post != nil {
+				ev.ContentKind = "forum_post"
+				ev.ContentID = post.ID
+				ev.ContentTitle = post.Title
+				ev.ContentURL = "/forum?post=" + post.ID
+				continue
+			}
+		}
+
+		if containsAnyString(ev.ToolCalls, []string{"comment", "request_consensus"}) {
+			if comment := findClosestByTime(commentsByAuthor[ev.AgentID], ev.Timestamp, maxDelta); comment != nil {
+				rootID := forum.ResolveRootPostID(comment.ID)
+				if rootID == "" {
+					rootID = comment.ParentID
+				}
+				if rootID != "" {
+					root := forum.Get(rootID)
+					title := ""
+					if root != nil {
+						title = root.Title
+					}
+					if title == "" {
+						title = "Open thread"
+					}
+
+					ev.ContentKind = "forum_comment"
+					ev.ContentID = comment.ID
+					ev.ContentTitle = title
+					ev.ContentURL = "/forum?post=" + rootID + "#" + comment.ID
+				}
+			}
+		}
+	}
+}
+
+func containsString(items []string, target string) bool {
+	for _, v := range items {
+		if v == target {
+			return true
+		}
+	}
+	return false
+}
+
+func containsAnyString(items []string, targets []string) bool {
+	for _, t := range targets {
+		if containsString(items, t) {
+			return true
+		}
+	}
+	return false
+}
+
+func findClosestByTime(items []*types.Publication, at time.Time, maxDelta time.Duration) *types.Publication {
+	if len(items) == 0 || at.IsZero() {
+		return nil
+	}
+	var best *types.Publication
+	var bestDelta time.Duration
+	for _, item := range items {
+		if item == nil || item.PublishedAt.IsZero() {
+			continue
+		}
+		delta := item.PublishedAt.Sub(at)
+		if delta < 0 {
+			delta = -delta
+		}
+		if maxDelta > 0 && delta > maxDelta {
+			continue
+		}
+		if best == nil || delta < bestDelta {
+			best = item
+			bestDelta = delta
+		}
+	}
+	return best
 }
 
 func parseLimit(value string, fallback, min, max int) int {

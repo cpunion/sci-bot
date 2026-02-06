@@ -86,7 +86,7 @@ const buildCommentTree = (comments, rootID) => {
 };
 
 const renderCommentNode = (comment, depth = 0) => `
-  <div class="comment-node" data-depth="${depth}">
+  <div class="comment-node" id="${comment.id}" data-depth="${depth}">
     <div class="comment-body">
       <small>Reply by ${comment.author_name || "unknown"} • ${formatTime(comment.published_at)}</small>
       <div class="md">${renderMarkdown(comment.content || "")}</div>
@@ -131,6 +131,13 @@ const renderPostDetail = (post, comments) => {
     </section>
   `;
   typesetMath(forumContent);
+  const hash = window.location.hash;
+  if (hash && hash.length > 1) {
+    const target = document.getElementById(hash.slice(1));
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }
 };
 
 const renderSubreddits = (stats, active) => {

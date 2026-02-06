@@ -51,32 +51,44 @@ const renderTools = (calls = [], responses = []) => {
 
 const renderEvent = (ev) => {
   const who = ev.agent_name || ev.agent_id || "agent";
+  const whoURL = ev.actor_url || (ev.agent_id ? `/agent/${ev.agent_id}` : "");
   const action = ev.action || "action";
   const when = formatDateTime(ev.sim_time || ev.timestamp);
   const tick = Number.isFinite(ev.tick) ? ` • tick ${ev.tick}` : "";
-  const preview = summarizeText(ev.response || ev.prompt || "");
+
+  const contentURL = ev.content_url || "";
+  const contentTitle = ev.content_title || "";
+  const contentLabel = contentTitle || (contentURL ? "Open content" : "");
 
   return `
     <div class="daily-entry event-entry">
       <div class="daily-header">
         <span class="daily-time">${escapeHTML(when)}${escapeHTML(tick)}</span>
-        <div class="daily-summary">${escapeHTML(`${who} · ${action}`)}</div>
+        <div class="daily-summary">
+          ${whoURL ? `<a href="${escapeHTML(whoURL)}">${escapeHTML(who)}</a>` : escapeHTML(who)}
+          <span class="post-meta"> · ${escapeHTML(action)}</span>
+          ${
+            contentURL
+              ? ` <span class="post-meta"> · </span><a class="content-link" href="${escapeHTML(contentURL)}">${escapeHTML(contentLabel)}</a>`
+              : ""
+          }
+        </div>
       </div>
-      ${preview ? `<div class="post-meta">${escapeHTML(preview)}</div>` : ""}
-      <details class="event-details">
-        <summary>Open</summary>
-        ${
-          ev.prompt
-            ? `<div class="daily-label">Prompt</div><div class="md">${renderMarkdown(ev.prompt)}</div>`
-            : ""
-        }
-        ${
-          ev.response
-            ? `<div class="daily-label">Response</div><div class="md">${renderMarkdown(ev.response)}</div>`
-            : ""
-        }
-        ${renderTools(ev.tool_calls || [], ev.tool_responses || [])}
-      </details>
+      ${
+        ev.response
+          ? `<div class="daily-label">Response</div><div class="md">${renderMarkdown(ev.response)}</div>`
+          : ""
+      }
+      ${
+        ev.prompt
+          ? `<details class="event-details"><summary>Prompt</summary><div class="md">${renderMarkdown(ev.prompt)}</div></details>`
+          : ""
+      }
+      ${
+        (ev.tool_calls || []).length || (ev.tool_responses || []).length
+          ? `<details class="event-details"><summary>Tools</summary>${renderTools(ev.tool_calls || [], ev.tool_responses || [])}</details>`
+          : ""
+      }
     </div>
   `;
 };
