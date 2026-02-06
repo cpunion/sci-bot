@@ -663,16 +663,18 @@ func (s *ADKScheduler) logEvent(ar *agentRunner, prompt actionPrompt, response, 
 		return
 	}
 	ev := EventLog{
-		Timestamp:           time.Now(),
-		SimTime:             s.simTime,
-		Tick:                s.ticks,
-		AgentID:             ar.persona.ID,
-		AgentName:           ar.persona.Name,
-		ModelName:           ar.modelName,
-		Action:              prompt.action,
-		Prompt:              truncateRunes(prompt.text, 500),
-		Response:            truncateRunes(response, 500),
-		Error:               truncateRunes(errText, 500),
+		Timestamp: time.Now(),
+		SimTime:   s.simTime,
+		Tick:      s.ticks,
+		AgentID:   ar.persona.ID,
+		AgentName: ar.persona.Name,
+		ModelName: ar.modelName,
+		Action:    prompt.action,
+		// Persist full prompt/response so the static feed can render without
+		// fetching per-agent daily JSONLs (which causes many HTTP requests).
+		Prompt:              strings.TrimSpace(prompt.text),
+		Response:            strings.TrimSpace(response),
+		Error:               strings.TrimSpace(errText),
 		ToolCalls:           toolCalls,
 		ToolResponses:       toolResponses,
 		TurnCount:           ar.turnCount,

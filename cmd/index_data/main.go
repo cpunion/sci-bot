@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -22,6 +23,7 @@ func main() {
 	feedDir := flag.String("feed", "feed", "Feed shards directory (relative to data directory). Set '-' to disable.")
 	feedMaxEvents := flag.Int("feed-max-events", 200, "Max events per feed shard file")
 	rebuildFeed := flag.Bool("rebuild-feed", false, "Rebuild sharded feed store from logs*.jsonl")
+	feedHydrateDaily := flag.Bool("feed-hydrate-daily", true, "When rebuilding feed, hydrate prompt/response/error from per-agent daily JSONLs if available")
 	flag.Parse()
 
 	agents, err := indexAgents(*dataPath)
@@ -42,7 +44,7 @@ func main() {
 	}
 
 	if *rebuildFeed && feedIndexRel != "" {
-		if err := rebuildFeedStore(*dataPath, *feedDir, *feedMaxEvents); err != nil {
+		if err := rebuildFeedStore(*dataPath, *feedDir, *feedMaxEvents, *feedHydrateDaily); err != nil {
 			log.Fatalf("Rebuild feed store: %v", err)
 		}
 	}
@@ -210,7 +212,7 @@ func roleFromID(id string) string {
 	return "agent"
 }
 
-func rebuildFeedStore(dataPath string, feedDir string, maxEventsPerShard int) error {
+func rebuildFeedStore(dataPath string, feedDir string, maxEventsPerShard int, hydrateDaily bool) error {
 	dirName := strings.TrimSpace(feedDir)
 	if dirName == "" {
 		dirName = "feed"
@@ -230,7 +232,7 @@ func rebuildFeedStore(dataPath string, feedDir string, maxEventsPerShard int) er
 
 	abs := filepath.Join(dataPath, dirName)
 	tmp := abs + ".rebuild-" + time.Now().Format("20060102-150405")
-	if _, err := feed.RebuildFromLogs(tmp, logPaths, maxEventsPerShard); err != nil {
+	if err := rebuildFeedFromLogs(tmp, dataPath, logPaths, maxEventsPerShard, hydrateDaily); err != nil {
 		return err
 	}
 
@@ -243,4 +245,124 @@ func rebuildFeedStore(dataPath string, feedDir string, maxEventsPerShard int) er
 	}
 
 	return os.Rename(tmp, abs)
+}
+
+type dailyLogEntry struct {
+	Timestamp string `json:"timestamp"`
+	Prompt    string `json:"prompt,omitempty"`
+	Reply     string `json:"reply,omitempty"`
+	Error     string `json:"error,omitempty"`
+	Notes     string `json:"notes,omitempty"`
+	Raw       string `json:"raw,omitempty"`
+}
+
+func rebuildFeedFromLogs(outDir, dataPath string, logPaths []string, maxEventsPerShard int, hydrateDaily bool) error {
+	events, err := readLogEvents(logPaths)
+	if err != nil {
+		return err
+	}
+
+	sort.SliceStable(events, func(i, j int) bool {
+		if events[i].SimTime.Equal(events[j].SimTime) {
+			return events[i].Timestamp.Before(events[j].Timestamp)
+		}
+		return events[i].SimTime.Before(events[j].SimTime)
+	})
+
+	w, err := feed.OpenWriter(feed.WriterConfig{
+		Dir:               outDir,
+		MaxEventsPerShard: maxEventsPerShard,
+		Append:            false,
+	})
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+
+	dailyCache := make(map[string]map[int64]dailyLogEntry)
+	loadDaily := func(agentID, dateKey string) map[int64]dailyLogEntry {
+		cacheKey := agentID + "|" + dateKey
+		if v, ok := dailyCache[cacheKey]; ok {
+			return v
+		}
+
+		m := make(map[int64]dailyLogEntry)
+		path := filepath.Join(dataPath, "agents", agentID, "daily", dateKey+".jsonl")
+		data, err := os.ReadFile(path)
+		if err == nil {
+			lines := strings.Split(string(data), "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if line == "" {
+					continue
+				}
+				var e dailyLogEntry
+				if err := json.Unmarshal([]byte(line), &e); err != nil {
+					continue
+				}
+				t, err := time.Parse(time.RFC3339, strings.TrimSpace(e.Timestamp))
+				if err != nil {
+					continue
+				}
+				m[t.Unix()] = e
+			}
+		}
+
+		dailyCache[cacheKey] = m
+		return m
+	}
+
+	for _, ev := range events {
+		if hydrateDaily && ev.AgentID != "" && !ev.SimTime.IsZero() {
+			dateKey := ev.SimTime.Format("2006-01-02")
+			idx := loadDaily(ev.AgentID, dateKey)
+			if entry, ok := idx[ev.SimTime.Unix()]; ok {
+				if strings.TrimSpace(entry.Prompt) != "" {
+					ev.Prompt = strings.TrimSpace(entry.Prompt)
+				}
+				if strings.TrimSpace(entry.Reply) != "" {
+					ev.Response = strings.TrimSpace(entry.Reply)
+				}
+				if strings.TrimSpace(entry.Error) != "" {
+					ev.Error = strings.TrimSpace(entry.Error)
+				}
+			}
+		}
+
+		line, err := json.Marshal(ev)
+		if err != nil {
+			return err
+		}
+		if err := w.AppendJSONLine(line); err != nil {
+			return err
+		}
+	}
+
+	_, err = feed.LoadIndex(filepath.Join(outDir, "index.json"))
+	return err
+}
+
+func readLogEvents(paths []string) ([]simulation.EventLog, error) {
+	out := make([]simulation.EventLog, 0, 1024)
+	for _, path := range paths {
+		f, err := os.Open(path)
+		if err != nil {
+			continue
+		}
+		scanner := bufio.NewScanner(f)
+		scanner.Buffer(make([]byte, 0, 256*1024), 8*1024*1024)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" {
+				continue
+			}
+			var ev simulation.EventLog
+			if err := json.Unmarshal([]byte(line), &ev); err != nil {
+				continue
+			}
+			out = append(out, ev)
+		}
+		_ = f.Close()
+	}
+	return out, nil
 }

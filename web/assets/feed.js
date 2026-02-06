@@ -211,7 +211,7 @@ const renderShardedFeed = async (manifest, feedIndexPath, feedIdx, targetEvents)
     // Shards are append-only oldest->newest, but the feed is displayed newest-first.
     evs.reverse();
 
-    await hydrateFromDailyNotes(evs);
+    // Feed shards are self-contained; avoid fetching per-agent daily JSONLs here.
     if (forumRaw) enrichFromForum(evs, forumRaw);
 
     scannedEvents += evs.length;
@@ -286,7 +286,7 @@ const renderLogsFeed = async (manifest, lim, params) => {
 
   const events = all.slice(0, lim);
 
-  await hydrateFromDailyNotes(events);
+  // Legacy (non-sharded) log view also avoids hydrating from daily JSONLs.
 
   // Best-effort enrich content links via forum timestamps.
   try {
@@ -327,60 +327,6 @@ const init = async () => {
   } catch (err) {
     root.innerHTML = `<div class="empty">${escapeHTML(err.message)}</div>`;
   }
-};
-
-const normalizeToSeconds = (iso) => {
-  if (!iso) return "";
-  return String(iso).replace(/\.\d+(?=Z|[+-]\d\d:\d\d$)/, "");
-};
-
-const dailyCache = new Map(); // key: `${agent_id}|${YYYY-MM-DD}` -> Promise<map>
-
-const loadDailyIndex = async (agentID, dateKey) => {
-  const key = `${agentID}|${dateKey}`;
-  if (dailyCache.has(key)) return dailyCache.get(key);
-
-  const p = (async () => {
-    try {
-      const entries = await fetchJSONL(`agents/${encodeURIComponent(agentID)}/daily/${dateKey}.jsonl`);
-      const map = new Map();
-      for (const e of entries || []) {
-        if (e && e.timestamp) {
-          map.set(String(e.timestamp), e);
-        }
-      }
-      return map;
-    } catch (_err) {
-      return new Map();
-    }
-  })();
-
-  dailyCache.set(key, p);
-  return p;
-};
-
-const hydrateFromDailyNotes = async (events) => {
-  const tasks = [];
-  for (const ev of events || []) {
-    const sim = String(ev?.sim_time || "");
-    const agentID = String(ev?.agent_id || "");
-    if (!sim || !agentID) continue;
-    const dateKey = sim.slice(0, 10);
-    if (!dateKey) continue;
-    const tsKey = normalizeToSeconds(sim);
-
-    tasks.push(
-      (async () => {
-        const idx = await loadDailyIndex(agentID, dateKey);
-        const entry = idx.get(tsKey);
-        if (!entry) return;
-        if (entry.prompt) ev.prompt = entry.prompt;
-        if (entry.reply) ev.response = entry.reply;
-        if (entry.error) ev.error = entry.error;
-      })()
-    );
-  }
-  await Promise.all(tasks);
 };
 
 const enrichFromForum = (events, forumRaw) => {
