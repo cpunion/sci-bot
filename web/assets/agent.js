@@ -108,21 +108,11 @@ const renderJournalSection = (approved, pending) => {
   return parts.join("");
 };
 
-const summarizeText = (text) => {
-  if (!text) return "";
-  const cleaned = text.replace(/[#>*_`\\-]/g, " ").replace(/\s+/g, " ").trim();
-  if (!cleaned) return "";
-  if (cleaned.length <= 140) return cleaned;
-  return `${cleaned.slice(0, 140)}…`;
-};
-
 const renderStructuredEntry = (entry) => {
-  const summarySource = entry.reply || entry.prompt || entry.notes || entry.raw || "";
   return `
     <div class="daily-entry">
       <div class="daily-header">
         <span class="daily-time">${formatDateTime(entry.timestamp)}</span>
-        <div class="daily-summary">${summarizeText(summarySource)}</div>
       </div>
       ${
         entry.prompt
