@@ -13,11 +13,12 @@ type Manifest struct {
 	StepSeconds int       `json:"step_seconds,omitempty"`
 
 	// Relative paths, anchored at the data root (the directory that contains this file).
-	AgentsPath  string   `json:"agents_path,omitempty"`  // e.g. "agents/agents.json"
-	ForumPath   string   `json:"forum_path,omitempty"`   // e.g. "forum/forum.json"
-	JournalPath string   `json:"journal_path,omitempty"` // e.g. "journal/journal.json"
-	Logs        []string `json:"logs,omitempty"`         // e.g. ["logs.jsonl", "logs-10d-...jsonl"]
-	DefaultLog  string   `json:"default_log,omitempty"`  // best-effort
+	AgentsPath    string   `json:"agents_path,omitempty"`     // e.g. "agents/agents.json"
+	ForumPath     string   `json:"forum_path,omitempty"`      // e.g. "forum/forum.json"
+	JournalPath   string   `json:"journal_path,omitempty"`    // e.g. "journal/journal.json"
+	FeedIndexPath string   `json:"feed_index_path,omitempty"` // e.g. "feed/index.json"
+	Logs          []string `json:"logs,omitempty"`            // e.g. ["logs.jsonl", "logs-10d-...jsonl"]
+	DefaultLog    string   `json:"default_log,omitempty"`     // best-effort
 
 	Stats ManifestStats `json:"stats,omitempty"`
 }

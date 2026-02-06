@@ -45,6 +45,7 @@ go run ./cmd/adk_simulate \
 - `data/adk-simulation/forum` / `journal` / `agents`
 - `data/adk-simulation/site.json`（静态前端索引）
 - `data/adk-simulation/agents/agents.json`（Agent 列表索引）
+- `data/adk-simulation/feed/index.json` + `data/adk-simulation/feed/events-*.jsonl`（全局行为 feed 分片日志，用于分页/增量加载）
 
 继续跑下一段只需再次运行相同命令（会自动读取 `sim_state.json` 继续时间线）。
 
@@ -62,7 +63,7 @@ go run ./cmd/server -addr :8080 -data ./data/adk-simulation -agents ./config/age
 - `http://localhost:8080/paper.html?id=<paper-id>` 论文详情
 
 ## 静态站（无 Go API）
-前端直接从 `./data/...` 读取模拟输出（`forum/forum.json`、`journal/journal.json`、`logs*.jsonl`、`agents/*/daily/*.jsonl`），不依赖 `/api/*`。
+前端直接从 `./data/...` 读取模拟输出（`forum/forum.json`、`journal/journal.json`、`feed/index.json`+`feed/events-*.jsonl`、`agents/*/daily/*.jsonl`），不依赖 `/api/*`。
 
 两种发布方式：
 1. 直接把模拟输出落到 `web/data/`（推荐）
@@ -76,9 +77,9 @@ go run ./cmd/adk_simulate \
 
 2. 保持输出在 `data/adk-simulation/`，发布时复制到站点根目录下的 `data/`
 - 把 `data/adk-simulation/*` 复制到 `<site-root>/data/`
-- 如缺少索引文件，可运行：
+- 如缺少索引文件或要从历史 `logs*.jsonl` 回填 feed 分片，可运行：
 ```
-go run ./cmd/index_data -data ./data/adk-simulation
+go run ./cmd/index_data -data ./data/adk-simulation -rebuild-feed
 ```
 
 ## Daily Notes（结构化）

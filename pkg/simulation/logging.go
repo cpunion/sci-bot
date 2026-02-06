@@ -29,19 +29,66 @@ type EventLog struct {
 	Sleeping       bool      `json:"sleeping"`
 
 	// Token usage (best-effort, depends on provider).
-	UsageEvents          int `json:"usage_events,omitempty"`
-	PromptTokens         int `json:"prompt_tokens,omitempty"`
-	CandidatesTokens     int `json:"candidates_tokens,omitempty"`
-	ThoughtsTokens       int `json:"thoughts_tokens,omitempty"`
-	ToolUsePromptTokens  int `json:"tool_use_prompt_tokens,omitempty"`
-	CachedContentTokens  int `json:"cached_content_tokens,omitempty"`
-	TotalTokens          int `json:"total_tokens,omitempty"`
+	UsageEvents         int `json:"usage_events,omitempty"`
+	PromptTokens        int `json:"prompt_tokens,omitempty"`
+	CandidatesTokens    int `json:"candidates_tokens,omitempty"`
+	ThoughtsTokens      int `json:"thoughts_tokens,omitempty"`
+	ToolUsePromptTokens int `json:"tool_use_prompt_tokens,omitempty"`
+	CachedContentTokens int `json:"cached_content_tokens,omitempty"`
+	TotalTokens         int `json:"total_tokens,omitempty"`
 }
 
 // EventLogger records simulation events for later analysis.
 type EventLogger interface {
 	LogEvent(EventLog) error
 	Close() error
+}
+
+// MultiLogger broadcasts events to multiple loggers.
+type MultiLogger struct {
+	loggers []EventLogger
+}
+
+func NewMultiLogger(loggers ...EventLogger) *MultiLogger {
+	out := make([]EventLogger, 0, len(loggers))
+	for _, l := range loggers {
+		if l != nil {
+			out = append(out, l)
+		}
+	}
+	return &MultiLogger{loggers: out}
+}
+
+func (m *MultiLogger) LogEvent(ev EventLog) error {
+	if m == nil {
+		return nil
+	}
+	var first error
+	for _, l := range m.loggers {
+		if l == nil {
+			continue
+		}
+		if err := l.LogEvent(ev); err != nil && first == nil {
+			first = err
+		}
+	}
+	return first
+}
+
+func (m *MultiLogger) Close() error {
+	if m == nil {
+		return nil
+	}
+	var first error
+	for _, l := range m.loggers {
+		if l == nil {
+			continue
+		}
+		if err := l.Close(); err != nil && first == nil {
+			first = err
+		}
+	}
+	return first
 }
 
 // JSONLLogger writes each event as a JSON line.

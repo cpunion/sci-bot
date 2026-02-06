@@ -44,7 +44,13 @@ export const loadManifest = async () => {
     _manifest = await fetchJSON("site.json");
     return _manifest;
   } catch (_err) {
-    _manifest = { logs: [], forum_path: "forum/forum.json", journal_path: "journal/journal.json", agents_path: "agents/agents.json" };
+    _manifest = {
+      logs: [],
+      forum_path: "forum/forum.json",
+      journal_path: "journal/journal.json",
+      agents_path: "agents/agents.json",
+      feed_index_path: "feed/index.json",
+    };
     return _manifest;
   }
 };

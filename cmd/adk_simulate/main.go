@@ -14,6 +14,7 @@ import (
 	"time"
 
 	ailibmodel "github.com/cpunion/ailib/adk/model"
+	"github.com/cpunion/sci-bot/pkg/feed"
 	"github.com/cpunion/sci-bot/pkg/publication"
 	"github.com/cpunion/sci-bot/pkg/simulation"
 	"github.com/cpunion/sci-bot/pkg/site"
@@ -36,6 +37,8 @@ func main() {
 	reviewerModelName := flag.String("reviewer-model", reviewerDefault, "LLM model spec for reviewer agents (e.g. gemini:gemini-3-pro-preview)")
 	logPath := flag.String("log", "./data/adk-simulation/logs.jsonl", "Path to JSONL log file")
 	logAppend := flag.Bool("log-append", true, "Append to log file instead of truncating")
+	feedDir := flag.String("feed", "feed", "Feed shards directory (relative to data directory). Set '-' to disable.")
+	feedMaxEvents := flag.Int("feed-max-events", 200, "Max events per feed shard file")
 	turnLimit := flag.Int("turns", 10, "Per-agent turn limit before sleep")
 	graceTurns := flag.Int("grace", 3, "Grace turns after bell")
 	agentsPerTick := flag.Int("per-tick", 1, "Number of agents to run per tick")
@@ -67,10 +70,38 @@ func main() {
 		}
 	}
 
-	logger, err := simulation.NewJSONLLogger(*logPath, *logAppend)
-	if err != nil {
-		log.Fatalf("Failed to create logger: %v", err)
+	var fileLogger simulation.EventLogger
+	if strings.TrimSpace(*logPath) != "" {
+		fileLogger, err = simulation.NewJSONLLogger(*logPath, *logAppend)
+		if err != nil {
+			log.Fatalf("Failed to create logger: %v", err)
+		}
 	}
+
+	var feedLogger simulation.EventLogger
+	feedIndexRel := ""
+	if strings.TrimSpace(*feedDir) != "-" {
+		dirName := strings.TrimSpace(*feedDir)
+		if dirName == "" {
+			dirName = "feed"
+		}
+		feedIndexRel = filepath.ToSlash(filepath.Join(dirName, "index.json"))
+		abs := filepath.Join(*dataPath, dirName)
+		fw, err := feed.OpenWriter(feed.WriterConfig{
+			Dir:               abs,
+			MaxEventsPerShard: *feedMaxEvents,
+			Append:            true,
+		})
+		if err != nil {
+			log.Fatalf("Failed to create feed store: %v", err)
+		}
+		feedLogger = &feedEventLogger{w: fw}
+	}
+
+	logger := simulation.NewMultiLogger(fileLogger, feedLogger)
+	defer func() {
+		_ = logger.Close()
+	}()
 
 	fmt.Println("=== Sci-Bot ADK Simulation ===")
 	fmt.Printf("Model (default): %s\n", *modelName)
@@ -80,7 +111,13 @@ func main() {
 	fmt.Printf("Step: %s\n", step.String())
 	fmt.Printf("Agents per tick: %d\n", *agentsPerTick)
 	fmt.Printf("Checkpoint every: %d\n", *checkpointEvery)
-	fmt.Printf("Log: %s\n\n", *logPath)
+	if strings.TrimSpace(*logPath) != "" {
+		fmt.Printf("Log: %s\n", *logPath)
+	}
+	if feedIndexRel != "" {
+		fmt.Printf("Feed index: %s\n", feedIndexRel)
+	}
+	fmt.Println()
 
 	journal := publication.NewJournal("科学前沿", filepath.Join(*dataPath, "journal"))
 	_ = journal.Load()
@@ -165,14 +202,16 @@ func main() {
 	}
 
 	// Write a static site manifest so a purely-static frontend can discover files.
-	if err := writeStaticManifest(*dataPath, *logPath, forum, journal, personas); err != nil {
+	if err := writeStaticManifest(*dataPath, *logPath, feedIndexRel, forum, journal, personas); err != nil {
 		log.Printf("Warning: failed to write site manifest: %v", err)
 	}
 
-	if summary, err := analyzeLog(*logPath); err == nil {
-		printSummary(summary)
-	} else {
-		log.Printf("Log analysis skipped: %v", err)
+	if strings.TrimSpace(*logPath) != "" {
+		if summary, err := analyzeLog(*logPath); err == nil {
+			printSummary(summary)
+		} else {
+			log.Printf("Log analysis skipped: %v", err)
+		}
 	}
 
 	fmt.Println("\nState saved to:", *dataPath)
@@ -250,7 +289,7 @@ func savePersonas(dataPath string, seed int64, personas []*types.Persona) error 
 	return os.WriteFile(filepath.Join(dataPath, "personas.json"), data, 0644)
 }
 
-func writeStaticManifest(dataPath string, logPath string, forum *publication.Forum, journal *publication.Journal, personas []*types.Persona) error {
+func writeStaticManifest(dataPath string, logPath string, feedIndexRel string, forum *publication.Forum, journal *publication.Journal, personas []*types.Persona) error {
 	state, _ := simulation.LoadSimState(dataPath)
 
 	logs := discoverLogs(dataPath)
@@ -290,13 +329,14 @@ func writeStaticManifest(dataPath string, logPath string, forum *publication.For
 	}
 
 	m := site.Manifest{
-		Version:     1,
-		GeneratedAt: time.Now(),
-		AgentsPath:  "agents/agents.json",
-		ForumPath:   "forum/forum.json",
-		JournalPath: "journal/journal.json",
-		Logs:        logs,
-		DefaultLog:  defaultLog,
+		Version:       1,
+		GeneratedAt:   time.Now(),
+		AgentsPath:    "agents/agents.json",
+		ForumPath:     "forum/forum.json",
+		JournalPath:   "journal/journal.json",
+		FeedIndexPath: feedIndexRel,
+		Logs:          logs,
+		DefaultLog:    defaultLog,
 		Stats: site.ManifestStats{
 			AgentCount:      len(personas),
 			ForumThreads:    forumThreads,

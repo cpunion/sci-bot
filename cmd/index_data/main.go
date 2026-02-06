@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cpunion/sci-bot/pkg/feed"
 	"github.com/cpunion/sci-bot/pkg/publication"
 	"github.com/cpunion/sci-bot/pkg/simulation"
 	"github.com/cpunion/sci-bot/pkg/site"
@@ -18,6 +19,9 @@ import (
 
 func main() {
 	dataPath := flag.String("data", "./data/adk-simulation", "Data directory (contains forum/, journal/, agents/)")
+	feedDir := flag.String("feed", "feed", "Feed shards directory (relative to data directory). Set '-' to disable.")
+	feedMaxEvents := flag.Int("feed-max-events", 200, "Max events per feed shard file")
+	rebuildFeed := flag.Bool("rebuild-feed", false, "Rebuild sharded feed store from logs*.jsonl")
 	flag.Parse()
 
 	agents, err := indexAgents(*dataPath)
@@ -28,7 +32,22 @@ func main() {
 		log.Fatalf("Write agents index: %v", err)
 	}
 
-	manifest, err := buildManifest(*dataPath, agents)
+	feedIndexRel := ""
+	if strings.TrimSpace(*feedDir) != "-" {
+		dirName := strings.TrimSpace(*feedDir)
+		if dirName == "" {
+			dirName = "feed"
+		}
+		feedIndexRel = filepath.ToSlash(filepath.Join(dirName, "index.json"))
+	}
+
+	if *rebuildFeed && feedIndexRel != "" {
+		if err := rebuildFeedStore(*dataPath, *feedDir, *feedMaxEvents); err != nil {
+			log.Fatalf("Rebuild feed store: %v", err)
+		}
+	}
+
+	manifest, err := buildManifest(*dataPath, agents, feedIndexRel)
 	if err != nil {
 		log.Fatalf("Build manifest: %v", err)
 	}
@@ -110,7 +129,7 @@ func writeAgents(dataPath string, agents []site.Agent) error {
 	return os.WriteFile(path, data, 0644)
 }
 
-func buildManifest(dataPath string, agents []site.Agent) (site.Manifest, error) {
+func buildManifest(dataPath string, agents []site.Agent, feedIndexRel string) (site.Manifest, error) {
 	state, _ := simulation.LoadSimState(dataPath)
 
 	forum := publication.NewForum("自由论坛", filepath.Join(dataPath, "forum"))
@@ -124,17 +143,25 @@ func buildManifest(dataPath string, agents []site.Agent) (site.Manifest, error) 
 		defaultLog = logs[len(logs)-1]
 	}
 
+	forumThreads := 0
+	for _, p := range forum.AllPosts() {
+		if p != nil && !p.IsComment {
+			forumThreads++
+		}
+	}
+
 	m := site.Manifest{
-		Version:     1,
-		GeneratedAt: time.Now(),
-		AgentsPath:  "agents/agents.json",
-		ForumPath:   "forum/forum.json",
-		JournalPath: "journal/journal.json",
-		Logs:        logs,
-		DefaultLog:  defaultLog,
+		Version:       1,
+		GeneratedAt:   time.Now(),
+		AgentsPath:    "agents/agents.json",
+		ForumPath:     "forum/forum.json",
+		JournalPath:   "journal/journal.json",
+		FeedIndexPath: feedIndexRel,
+		Logs:          logs,
+		DefaultLog:    defaultLog,
 		Stats: site.ManifestStats{
 			AgentCount:      len(agents),
-			ForumThreads:    len(forum.AllPosts()),
+			ForumThreads:    forumThreads,
 			JournalApproved: len(journal.GetApproved()),
 			JournalPending:  len(journal.GetPending()),
 		},
@@ -181,4 +208,39 @@ func roleFromID(id string) string {
 		}
 	}
 	return "agent"
+}
+
+func rebuildFeedStore(dataPath string, feedDir string, maxEventsPerShard int) error {
+	dirName := strings.TrimSpace(feedDir)
+	if dirName == "" {
+		dirName = "feed"
+	}
+	if dirName == "-" {
+		return nil
+	}
+
+	logNames := discoverLogs(dataPath)
+	if len(logNames) == 0 {
+		return nil
+	}
+	logPaths := make([]string, 0, len(logNames))
+	for _, name := range logNames {
+		logPaths = append(logPaths, filepath.Join(dataPath, name))
+	}
+
+	abs := filepath.Join(dataPath, dirName)
+	tmp := abs + ".rebuild-" + time.Now().Format("20060102-150405")
+	if _, err := feed.RebuildFromLogs(tmp, logPaths, maxEventsPerShard); err != nil {
+		return err
+	}
+
+	// Preserve any previous feed directory (do not delete data).
+	if st, err := os.Stat(abs); err == nil && st.IsDir() {
+		bak := abs + ".bak-" + time.Now().Format("20060102-150405")
+		if err := os.Rename(abs, bak); err != nil {
+			return err
+		}
+	}
+
+	return os.Rename(tmp, abs)
 }

@@ -292,6 +292,13 @@ main {
   gap: 16px;
 }
 
+.feed-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+
 .event-details {
   margin-top: 10px;
 }

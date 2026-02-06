@@ -98,69 +98,195 @@ const renderEvent = (ev) => {
   `;
 };
 
+const loadFeedIndex = async (manifest) => {
+  const rel = String(manifest?.feed_index_path || "").trim() || "feed/index.json";
+  try {
+    const idx = await fetchJSON(rel);
+    if (!idx || !Array.isArray(idx.shards) || !idx.shards.length) return null;
+    return { path: rel, idx };
+  } catch (_err) {
+    return null;
+  }
+};
+
+const pathDir = (p) => {
+  const s = String(p || "").trim().replace(/^\/+/, "");
+  const i = s.lastIndexOf("/");
+  if (i <= 0) return "";
+  return s.slice(0, i);
+};
+
+const renderShardedFeed = async (manifest, feedIndexPath, feedIdx, targetEvents) => {
+  const feedDir = pathDir(feedIndexPath);
+  const shards = Array.isArray(feedIdx?.shards) ? feedIdx.shards : [];
+  let cursor = shards.length - 1;
+  let loadedEvents = 0;
+
+  let forumRaw = null;
+  try {
+    const forumPath = manifest?.forum_path || "forum/forum.json";
+    forumRaw = await fetchJSON(forumPath);
+  } catch (_err) {
+    forumRaw = null;
+  }
+
+  root.innerHTML = `
+    <section class="feed-section">
+      <h3>Global Feed</h3>
+      <div class="post-meta" id="feed-meta"></div>
+      <div class="feed-actions">
+        <button class="tab-btn" id="feed-load-more" type="button">Load more</button>
+      </div>
+    </section>
+    <section class="feed-section" id="feed-events"></section>
+  `;
+
+  const metaEl = document.getElementById("feed-meta");
+  const eventsEl = document.getElementById("feed-events");
+  const btn = document.getElementById("feed-load-more");
+
+  const total = Number(feedIdx?.total_events) > 0 ? Number(feedIdx.total_events) : 0;
+
+  const updateMeta = () => {
+    const remainingShards = cursor + 1;
+    const totalLabel = total > 0 ? ` / ${total}` : "";
+    metaEl.innerHTML = `Source: <code>${escapeHTML(feedIndexPath)}</code> • events: ${loadedEvents}${totalLabel} • remaining shards: ${remainingShards}`;
+    btn.disabled = cursor < 0;
+    btn.textContent = cursor < 0 ? "No more" : "Load more";
+  };
+
+  const loadOneShard = async () => {
+    if (cursor < 0) return false;
+    const shard = shards[cursor];
+    cursor -= 1;
+
+    const file = String(shard?.file || "").trim();
+    if (!file) {
+      updateMeta();
+      return true;
+    }
+
+    const rel = feedDir ? `${feedDir}/${file}` : file;
+    let evs = [];
+    try {
+      evs = await fetchJSONL(rel);
+    } catch (_err) {
+      evs = [];
+    }
+
+    // Shards are append-only oldest->newest, but the feed is displayed newest-first.
+    evs.reverse();
+
+    await hydrateFromDailyNotes(evs);
+    if (forumRaw) enrichFromForum(evs, forumRaw);
+
+    const chunk = document.createElement("div");
+    chunk.innerHTML = evs.length ? evs.map(renderEvent).join("") : "";
+    eventsEl.appendChild(chunk);
+    typesetMath(chunk);
+
+    loadedEvents += evs.length;
+    updateMeta();
+    return true;
+  };
+
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.textContent = "Loading…";
+    try {
+      await loadOneShard();
+    } finally {
+      updateMeta();
+    }
+  });
+
+  updateMeta();
+  while (cursor >= 0 && loadedEvents < targetEvents) {
+    // eslint-disable-next-line no-await-in-loop
+    const ok = await loadOneShard();
+    if (!ok) break;
+  }
+
+  if (loadedEvents === 0) {
+    eventsEl.innerHTML = `<div class="empty">No events found.</div>`;
+  }
+  updateMeta();
+};
+
+const renderLogsFeed = async (manifest, lim, params) => {
+  const requestedLog = String(params?.get("log") || "").trim();
+  const logNames = Array.isArray(manifest?.logs) ? manifest.logs : [];
+
+  let logsToLoad = [];
+  let logLabel = requestedLog || "all";
+  if (!requestedLog || requestedLog === "all") {
+    logsToLoad = logNames.length ? logNames : ["logs.jsonl"];
+    logLabel = "all";
+  } else {
+    logsToLoad = [requestedLog];
+  }
+
+  const all = [];
+  for (const name of logsToLoad) {
+    try {
+      const evs = await fetchJSONL(name);
+      for (const ev of evs || []) {
+        all.push(ev);
+      }
+    } catch (_err) {
+      // ignore missing logs
+    }
+  }
+
+  all.sort((a, b) => {
+    const at = new Date(a.sim_time || a.timestamp || 0).getTime();
+    const bt = new Date(b.sim_time || b.timestamp || 0).getTime();
+    if (at === bt) {
+      return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+    }
+    return bt - at;
+  });
+
+  const events = all.slice(0, lim);
+
+  await hydrateFromDailyNotes(events);
+
+  // Best-effort enrich content links via forum timestamps.
+  try {
+    const forumPath = manifest?.forum_path || "forum/forum.json";
+    const forumRaw = await fetchJSON(forumPath);
+    enrichFromForum(events, forumRaw);
+  } catch (_err) {
+    // ignore enrichment errors
+  }
+
+  root.innerHTML = `
+    <section class="feed-section">
+      <h3>Global Feed</h3>
+      <div class="post-meta">Source: <code>${escapeHTML(logLabel)}</code> • events: ${events.length}</div>
+    </section>
+    <section class="feed-section">
+      ${events.length ? events.map(renderEvent).join("") : `<div class="empty">No events found.</div>`}
+    </section>
+  `;
+  typesetMath(root);
+};
+
 const init = async () => {
   try {
     const params = new URLSearchParams(window.location.search);
     const limit = params.get("limit") || "200";
-    const requestedLog = (params.get("log") || "").trim();
-    const lim = Math.max(1, Math.min(2000, Number(limit) || 200));
+    const lim = Math.max(1, Math.min(5000, Number(limit) || 200));
 
     const manifest = await loadManifest();
-    const logNames = Array.isArray(manifest?.logs) ? manifest.logs : [];
 
-    let logsToLoad = [];
-    let logLabel = requestedLog || "all";
-    if (!requestedLog || requestedLog === "all") {
-      logsToLoad = logNames.length ? logNames : ["logs.jsonl"];
-      logLabel = "all";
-    } else {
-      logsToLoad = [requestedLog];
+    const feed = await loadFeedIndex(manifest);
+    if (feed) {
+      await renderShardedFeed(manifest, feed.path, feed.idx, lim);
+      return;
     }
 
-    const all = [];
-    for (const name of logsToLoad) {
-      try {
-        const evs = await fetchJSONL(name);
-        for (const ev of evs || []) {
-          all.push(ev);
-        }
-      } catch (_err) {
-        // ignore missing logs
-      }
-    }
-
-    all.sort((a, b) => {
-      const at = new Date(a.sim_time || a.timestamp || 0).getTime();
-      const bt = new Date(b.sim_time || b.timestamp || 0).getTime();
-      if (at === bt) {
-        return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
-      }
-      return bt - at;
-    });
-
-    const events = all.slice(0, lim);
-
-    await hydrateFromDailyNotes(events);
-
-    // Best-effort enrich content links via forum timestamps.
-    try {
-      const forumPath = manifest?.forum_path || "forum/forum.json";
-      const forumRaw = await fetchJSON(forumPath);
-      enrichFromForum(events, forumRaw);
-    } catch (_err) {
-      // ignore enrichment errors
-    }
-
-    root.innerHTML = `
-      <section class="feed-section">
-        <h3>Global Feed</h3>
-        <div class="post-meta">Log: <code>${escapeHTML(logLabel)}</code> • events: ${events.length}</div>
-      </section>
-      <section class="feed-section">
-        ${events.length ? events.map(renderEvent).join("") : `<div class="empty">No events found.</div>`}
-      </section>
-    `;
-    typesetMath(root);
+    await renderLogsFeed(manifest, lim, params);
   } catch (err) {
     root.innerHTML = `<div class="empty">${escapeHTML(err.message)}</div>`;
   }
