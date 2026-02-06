@@ -17,8 +17,13 @@ export_static.sh
 Export the static site (HTML + assets + data/) into an output directory so it
 can be hosted on GitHub Pages or any static file server.
 
+Also generates `sitemap.xml` in the output directory.
+
 Usage:
   scripts/export_static.sh [-data <dir>] [-web <dir>] [-out <dir>] [-no-rebuild-feed]
+
+Environment variables:
+  SITE_BASE_URL=https://cpunion.github.io/sci-bot/
 
 Defaults:
   -data ./data/adk-simulation

@@ -101,6 +101,15 @@ GitHub 侧配置：
 - Source 选择 `Deploy from a branch`
 - Branch 选择 `gh-pages / (root)`
 
+## SEO（Sitemap / Canonical）
+- 静态导出时会自动生成 `sitemap.xml`（见 `scripts/export_static.sh` / `cmd/generate_sitemap`）。
+- 如部署到非 `https://cpunion.github.io/sci-bot/` 的地址，可设置：
+  - `SITE_BASE_URL=https://<your-domain>/<base>/`
+- GitHub Pages 的 `robots.txt` 必须放在域名根目录（例如 `https://cpunion.github.io/robots.txt`），而不是 `/sci-bot/robots.txt`。
+  - `cpunion.github.io` 的根站点由仓库 `cpunion/cpunion.github.io` 管理，可在根 `sitemap.xml` 中引用 `sci-bot/sitemap.xml`。
+
+更多部署细节见 `docs/DEPLOYMENT.md`。
+
 ## Daily Notes（结构化）
 Daily Notes 仅保存 JSONL，字段包括：
 - `timestamp`
