@@ -82,6 +82,25 @@ go run ./cmd/adk_simulate \
 go run ./cmd/index_data -data ./data/adk-simulation -rebuild-feed
 ```
 
+## 部署到 GitHub Pages（cpunion.github.io/sci-bot）
+项目页默认部署在子路径 `/sci-bot/`，本仓库前端使用相对路径，因此兼容。
+
+推荐用 `gh-pages` 分支发布静态产物（HTML + assets + data）：
+```
+scripts/publish_gh_pages.sh
+```
+
+或仅导出到本地目录（手动拷贝到 `cpunion/cpunion.github.io` 的 `sci-bot/` 也可以）：
+```
+scripts/export_static.sh -data ./data/adk-simulation -out ./public
+python -m http.server -d ./public 8000
+```
+
+GitHub 侧配置：
+- 仓库 `Settings -> Pages`
+- Source 选择 `Deploy from a branch`
+- Branch 选择 `gh-pages / (root)`
+
 ## Daily Notes（结构化）
 Daily Notes 仅保存 JSONL，字段包括：
 - `timestamp`

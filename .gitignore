@@ -39,6 +39,10 @@ Thumbs.db
 /web/data
 /web/data/
 
+# Static export
+/public/
+/.worktrees/
+
 # Debug
 __debug_bin*
 playwright-network-requests.txt
