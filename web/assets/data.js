@@ -3,13 +3,40 @@
 // The frontend reads simulation outputs directly from `./data/...` so the site
 // can be hosted as pure static files (GitHub Pages, S3, etc.) without a server API.
 
+const normalizePath = (relativePath) => {
+  return String(relativePath || "")
+    .trim()
+    .replace(/^\/+/, "")
+    .replace(/\\/g, "/");
+};
+
+// In-memory fetch cache (per page load). This is important because:
+// - The Go dev server sets `Cache-Control: no-store` on `/data/*` so browsers
+//   won't reuse HTTP cache entries.
+// - Some pages hydrate events by reading per-agent daily JSONL, which can
+//   otherwise trigger duplicate requests.
+const _textCache = new Map(); // key: normalized relativePath -> Promise<string>
+
 export const fetchText = async (relativePath) => {
-  const url = new URL(`../data/${String(relativePath).replace(/^\/+/, "")}`, import.meta.url);
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status}`);
+  const key = normalizePath(relativePath);
+  if (_textCache.has(key)) return _textCache.get(key);
+
+  const p = (async () => {
+    const url = new URL(`../data/${key}`, import.meta.url);
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Request failed: ${res.status}`);
+    }
+    return res.text();
+  })();
+
+  _textCache.set(key, p);
+  try {
+    return await p;
+  } catch (err) {
+    _textCache.delete(key);
+    throw err;
   }
-  return res.text();
 };
 
 export const fetchJSON = async (relativePath) => {
