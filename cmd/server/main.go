@@ -221,7 +221,22 @@ func main() {
 		}
 
 		limit := parseLimit(r.URL.Query().Get("limit"), 200, 1, 2000)
-		logPath, logName, err := resolveFeedLog(*dataPath, r.URL.Query().Get("log"))
+		requestedLog := strings.TrimSpace(r.URL.Query().Get("log"))
+
+		var logName string
+		var events []FeedEvent
+		var err error
+
+		if requestedLog == "" || requestedLog == "all" {
+			logName = "all"
+			events, err = loadFeedEventsAll(*dataPath, limit)
+		} else {
+			var logPath string
+			logPath, logName, err = resolveFeedLog(*dataPath, requestedLog)
+			if err == nil {
+				events, err = loadFeedEvents(logPath, limit)
+			}
+		}
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				return nil, http.StatusNotFound, err
@@ -229,10 +244,7 @@ func main() {
 			return nil, http.StatusBadRequest, err
 		}
 
-		events, err := loadFeedEvents(logPath, limit)
-		if err != nil {
-			return nil, http.StatusInternalServerError, err
-		}
+		hydrateFeedEventsFromDailyNotes(*dataPath, events)
 		enrichFeedEvents(*dataPath, events)
 		sort.SliceStable(events, func(i, j int) bool {
 			if events[i].SimTime.Equal(events[j].SimTime) {
@@ -982,6 +994,103 @@ func loadFeedEvents(path string, limit int) ([]FeedEvent, error) {
 	return out, nil
 }
 
+func loadFeedEventsAll(dataPath string, limit int) ([]FeedEvent, error) {
+	entries, err := os.ReadDir(dataPath)
+	if err != nil {
+		return nil, err
+	}
+
+	paths := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasPrefix(name, "logs") || !strings.HasSuffix(name, ".jsonl") {
+			continue
+		}
+		paths = append(paths, filepath.Join(dataPath, name))
+	}
+	if len(paths) == 0 {
+		return nil, os.ErrNotExist
+	}
+
+	all := make([]FeedEvent, 0, limit*minInt(len(paths), 10))
+	for _, path := range paths {
+		evs, err := loadFeedEvents(path, limit)
+		if err != nil {
+			continue
+		}
+		all = append(all, evs...)
+	}
+
+	sort.SliceStable(all, func(i, j int) bool {
+		if all[i].SimTime.Equal(all[j].SimTime) {
+			return all[i].Timestamp.After(all[j].Timestamp)
+		}
+		return all[i].SimTime.After(all[j].SimTime)
+	})
+	if len(all) > limit {
+		all = all[:limit]
+	}
+
+	return all, nil
+}
+
+func hydrateFeedEventsFromDailyNotes(dataPath string, events []FeedEvent) {
+	if len(events) == 0 {
+		return
+	}
+
+	// Cache: daily file path -> timestamp -> entry
+	cache := make(map[string]map[string]DailyEntry)
+	missing := make(map[string]bool)
+
+	for i := range events {
+		ev := &events[i]
+		if ev.AgentID == "" || ev.SimTime.IsZero() {
+			continue
+		}
+
+		dateKey := ev.SimTime.Format("2006-01-02")
+		dailyPath := filepath.Join(dataPath, "agents", ev.AgentID, "daily", dateKey+".jsonl")
+		if missing[dailyPath] {
+			continue
+		}
+
+		entriesByTS, ok := cache[dailyPath]
+		if !ok {
+			entries, err := readDailyEntries(dailyPath)
+			if err != nil {
+				missing[dailyPath] = true
+				continue
+			}
+			entriesByTS = make(map[string]DailyEntry, len(entries))
+			for _, entry := range entries {
+				if entry.Timestamp == "" {
+					continue
+				}
+				entriesByTS[entry.Timestamp] = entry
+			}
+			cache[dailyPath] = entriesByTS
+		}
+
+		// Daily notes use RFC3339 (seconds precision). Feed events use time.Time
+		// marshaled with RFC3339Nano; normalize to seconds.
+		tsKey := ev.SimTime.Truncate(time.Second).Format(time.RFC3339)
+		entry, ok := entriesByTS[tsKey]
+		if !ok {
+			continue
+		}
+		if entry.Prompt != "" {
+			ev.Prompt = entry.Prompt
+		}
+		if entry.Reply != "" {
+			ev.Response = entry.Reply
+		}
+	}
+}
+
 func enrichFeedEvents(dataPath string, events []FeedEvent) {
 	if len(events) == 0 {
 		return
@@ -1126,4 +1235,11 @@ func parseLimit(value string, fallback, min, max int) int {
 		return max
 	}
 	return parsed
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
