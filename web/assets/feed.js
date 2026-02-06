@@ -80,6 +80,11 @@ const renderEvent = (ev) => {
         </div>
       </div>
       ${
+        !ev.response && !ev.error && !(ev.tool_calls || []).length && !(ev.tool_responses || []).length
+          ? `<div class="post-meta">No response or tools recorded for this event (older runs may lack fields).</div>`
+          : ""
+      }
+      ${
         ev.error
           ? `<div class="daily-label">Error</div><div class="md">${renderMarkdown(String(ev.error))}</div>`
           : ""
@@ -87,7 +92,7 @@ const renderEvent = (ev) => {
       ${
         ev.response
           ? `<div class="daily-label">Response</div><div class="md">${renderMarkdown(ev.response)}</div>`
-          : ""
+          : `<div class="daily-label">Response</div><div class="empty">No response recorded.</div>`
       }
       ${
         ev.prompt
@@ -125,7 +130,8 @@ const renderShardedFeed = async (manifest, feedIndexPath, feedIdx, targetEvents)
   const feedDir = pathDir(feedIndexPath);
   const shards = Array.isArray(feedIdx?.shards) ? feedIdx.shards : [];
   let cursor = shards.length - 1;
-  let loadedEvents = 0;
+  let shownEvents = 0;
+  let scannedEvents = 0;
 
   let forumRaw = null;
   try {
@@ -141,6 +147,7 @@ const renderShardedFeed = async (manifest, feedIndexPath, feedIdx, targetEvents)
       <div class="post-meta" id="feed-meta"></div>
       <div class="feed-actions">
         <button class="tab-btn" id="feed-load-more" type="button">Load more</button>
+        <a class="tab-btn" id="feed-mode" href="./feed.html">Show all events</a>
       </div>
     </section>
     <section class="feed-section" id="feed-events"></section>
@@ -149,13 +156,35 @@ const renderShardedFeed = async (manifest, feedIndexPath, feedIdx, targetEvents)
   const metaEl = document.getElementById("feed-meta");
   const eventsEl = document.getElementById("feed-events");
   const btn = document.getElementById("feed-load-more");
+  const modeLink = document.getElementById("feed-mode");
 
   const total = Number(feedIdx?.total_events) > 0 ? Number(feedIdx.total_events) : 0;
+  const params = new URLSearchParams(window.location.search);
+  const includeEmpty = String(params.get("mode") || "").trim().toLowerCase() === "all";
+  if (includeEmpty) {
+    modeLink.textContent = "Show rich only";
+    params.set("mode", "rich");
+    modeLink.href = `./feed.html?${params.toString()}`;
+  } else {
+    modeLink.textContent = "Show all events";
+    params.set("mode", "all");
+    modeLink.href = `./feed.html?${params.toString()}`;
+  }
+
+  const isRich = (ev) => {
+    if (!ev) return false;
+    if (ev.response) return true;
+    if (ev.error) return true;
+    if ((ev.tool_calls || []).length) return true;
+    if ((ev.tool_responses || []).length) return true;
+    if (ev.content_url) return true;
+    return false;
+  };
 
   const updateMeta = () => {
     const remainingShards = cursor + 1;
     const totalLabel = total > 0 ? ` / ${total}` : "";
-    metaEl.innerHTML = `Source: <code>${escapeHTML(feedIndexPath)}</code> • events: ${loadedEvents}${totalLabel} • remaining shards: ${remainingShards}`;
+    metaEl.innerHTML = `Source: <code>${escapeHTML(feedIndexPath)}</code> • shown: ${shownEvents}${totalLabel} • scanned: ${scannedEvents} • remaining shards: ${remainingShards} • mode: <code>${includeEmpty ? "all" : "rich"}</code>`;
     btn.disabled = cursor < 0;
     btn.textContent = cursor < 0 ? "No more" : "Load more";
   };
@@ -185,12 +214,15 @@ const renderShardedFeed = async (manifest, feedIndexPath, feedIdx, targetEvents)
     await hydrateFromDailyNotes(evs);
     if (forumRaw) enrichFromForum(evs, forumRaw);
 
+    scannedEvents += evs.length;
+    const view = includeEmpty ? evs : evs.filter(isRich);
+
     const chunk = document.createElement("div");
-    chunk.innerHTML = evs.length ? evs.map(renderEvent).join("") : "";
+    chunk.innerHTML = view.length ? view.map(renderEvent).join("") : "";
     eventsEl.appendChild(chunk);
     typesetMath(chunk);
 
-    loadedEvents += evs.length;
+    shownEvents += view.length;
     updateMeta();
     return true;
   };
@@ -206,13 +238,13 @@ const renderShardedFeed = async (manifest, feedIndexPath, feedIdx, targetEvents)
   });
 
   updateMeta();
-  while (cursor >= 0 && loadedEvents < targetEvents) {
+  while (cursor >= 0 && shownEvents < targetEvents) {
     // eslint-disable-next-line no-await-in-loop
     const ok = await loadOneShard();
     if (!ok) break;
   }
 
-  if (loadedEvents === 0) {
+  if (shownEvents === 0) {
     eventsEl.innerHTML = `<div class="empty">No events found.</div>`;
   }
   updateMeta();
