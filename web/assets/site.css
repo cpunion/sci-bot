@@ -647,6 +647,9 @@ main {
 }
 
 @media (max-width: 680px) {
+  main.page {
+    padding: 0 4vw 64px;
+  }
   .post {
     grid-template-columns: 1fr;
   }
