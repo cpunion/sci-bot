@@ -4,10 +4,20 @@
 // can be hosted as pure static files (GitHub Pages, S3, etc.) without a server API.
 
 const normalizePath = (relativePath) => {
-  return String(relativePath || "")
-    .trim()
-    .replace(/^\/+/, "")
-    .replace(/\\/g, "/");
+  const raw = String(relativePath || "").trim().replace(/\\/g, "/");
+  const stripped = raw.replace(/^\/+/, "");
+  const parts = stripped.split("/");
+  const out = [];
+  for (const part of parts) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      // Best-effort canonicalization; avoid producing paths like `../...`.
+      if (out.length) out.pop();
+      continue;
+    }
+    out.push(part);
+  }
+  return out.join("/");
 };
 
 // In-memory fetch cache (per page load). This is important because:
@@ -15,14 +25,15 @@ const normalizePath = (relativePath) => {
 //   won't reuse HTTP cache entries.
 // - Some pages hydrate events by reading per-agent daily JSONL, which can
 //   otherwise trigger duplicate requests.
-const _textCache = new Map(); // key: normalized relativePath -> Promise<string>
+const _textCache = new Map(); // key: resolved absolute URL -> Promise<string>
 
 export const fetchText = async (relativePath) => {
   const key = normalizePath(relativePath);
-  if (_textCache.has(key)) return _textCache.get(key);
+  const url = new URL(`../data/${key}`, import.meta.url);
+  const cacheKey = url.toString();
+  if (_textCache.has(cacheKey)) return _textCache.get(cacheKey);
 
   const p = (async () => {
-    const url = new URL(`../data/${key}`, import.meta.url);
     const res = await fetch(url);
     if (!res.ok) {
       throw new Error(`Request failed: ${res.status}`);
@@ -30,11 +41,11 @@ export const fetchText = async (relativePath) => {
     return res.text();
   })();
 
-  _textCache.set(key, p);
+  _textCache.set(cacheKey, p);
   try {
     return await p;
   } catch (err) {
-    _textCache.delete(key);
+    _textCache.delete(cacheKey);
     throw err;
   }
 };
