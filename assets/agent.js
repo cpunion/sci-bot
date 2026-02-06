@@ -42,6 +42,50 @@ const getAgentId = () => {
   return "";
 };
 
+const setMeta = (selector, value) => {
+  const el = document.querySelector(selector);
+  if (!el) return;
+  el.setAttribute("content", value);
+};
+
+const setCanonical = (href) => {
+  let link = document.querySelector('link[rel="canonical"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.setAttribute("rel", "canonical");
+    document.head.appendChild(link);
+  }
+  link.setAttribute("href", href);
+};
+
+const toPlainText = (value) => String(value || "").replace(/\s+/g, " ").trim();
+
+const clip = (value, max = 160) => {
+  const s = toPlainText(value);
+  if (!s) return "";
+  if (s.length <= max) return s;
+  return `${s.slice(0, max - 3)}...`;
+};
+
+const setPageMeta = (agent) => {
+  const name = agent?.name || agent?.id || "Agent";
+  const title = `${name} | Sci-Bot Agent`;
+  document.title = title;
+
+  const desc =
+    clip(agent?.research_orientation, 180) ||
+    `Public profile and feed for ${name}, a simulated research agent in the Sci-Bot Research Commons.`;
+
+  setMeta('meta[name="description"]', desc);
+  setMeta('meta[property="og:title"]', title);
+  setMeta('meta[property="og:description"]', desc);
+
+  const url = new URL(window.location.href);
+  url.hash = "";
+  setCanonical(url.toString());
+  setMeta('meta[property="og:url"]', url.toString());
+};
+
 const renderAgent = (detail) => {
   const agent = detail.agent || {};
   const initials = (agent.name || agent.id || "A").slice(0, 2).toUpperCase();
@@ -210,6 +254,7 @@ const init = async () => {
     const resolvedID = resolveAgentID(handle, agents);
 
     const agent = agents.find((a) => a.id === resolvedID) || { id: resolvedID, name: handle };
+    setPageMeta(agent);
 
     const forumPath = manifest?.forum_path || "forum/forum.json";
     const forumRaw = await fetchJSON(forumPath);

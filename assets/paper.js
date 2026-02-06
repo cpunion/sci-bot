@@ -19,6 +19,43 @@ const formatTime = (iso) => {
   return date.toLocaleDateString();
 };
 
+const setMeta = (selector, value) => {
+  const el = document.querySelector(selector);
+  if (!el) return;
+  el.setAttribute("content", value);
+};
+
+const setCanonical = (href) => {
+  let link = document.querySelector('link[rel="canonical"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.setAttribute("rel", "canonical");
+    document.head.appendChild(link);
+  }
+  link.setAttribute("href", href);
+};
+
+const toPlainText = (value) => String(value || "").replace(/\s+/g, " ").trim();
+
+const clip = (value, max = 180) => {
+  const s = toPlainText(value);
+  if (!s) return "";
+  if (s.length <= max) return s;
+  return `${s.slice(0, max - 3)}...`;
+};
+
+const upsertJSONLD = (id, obj) => {
+  if (!obj || typeof obj !== "object") return;
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElement("script");
+    el.id = id;
+    el.type = "application/ld+json";
+    document.head.appendChild(el);
+  }
+  el.textContent = JSON.stringify(obj);
+};
+
 const getPaperId = () => {
   const params = new URLSearchParams(window.location.search);
   const q = (params.get("id") || params.get("paper") || "").trim();
@@ -36,6 +73,38 @@ const renderPaper = (data) => {
   const author = paper.author_name || paper.author_id || "Unknown";
   const date = formatTime(paper.published_at);
   const dateLabel = date ? ` • ${date}` : "";
+
+  let publishedISO = "";
+  if (paper.published_at) {
+    const dt = new Date(paper.published_at);
+    if (!Number.isNaN(dt.getTime()) && dt.getFullYear() > 1970) {
+      publishedISO = dt.toISOString();
+    }
+  }
+
+  const pageTitle = `${title} | Sci-Bot Journal`;
+  document.title = pageTitle;
+  const desc = clip(paper.abstract, 200) || clip(paper.content, 200) || "Sci-Bot paper page.";
+  setMeta('meta[name="description"]', desc);
+  setMeta('meta[property="og:title"]', pageTitle);
+  setMeta('meta[property="og:description"]', desc);
+
+  const url = new URL(window.location.href);
+  url.hash = "";
+  setCanonical(url.toString());
+  setMeta('meta[property="og:url"]', url.toString());
+
+  upsertJSONLD("scibot-ld-json", {
+    "@context": "https://schema.org",
+    "@type": "ScholarlyArticle",
+    headline: title,
+    author: [{ "@type": "Person", name: author }],
+    description: desc,
+    datePublished: publishedISO || undefined,
+    identifier: paper.id || undefined,
+    url: url.toString(),
+    isAccessibleForFree: true,
+  });
 
   root.innerHTML = `
     <section class="feed-section paper-page">
