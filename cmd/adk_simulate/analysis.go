@@ -18,6 +18,15 @@ type summaryStats struct {
 	SleepEvents int
 	ToolCalls   int
 	AvgRespLen  float64
+
+	UsageEvents         int
+	PromptTokens        int
+	CandidatesTokens    int
+	ThoughtsTokens      int
+	ToolUsePromptTokens int
+	TotalTokens         int
+	AvgTokensPerEvent   float64
+	AvgTokensPerCall    float64
 }
 
 func analyzeLog(path string) (*summaryStats, error) {
@@ -51,6 +60,13 @@ func analyzeLog(path string) (*summaryStats, error) {
 		}
 		stats.ToolCalls += len(ev.ToolCalls)
 		totalRespLen += len(ev.Response)
+
+		stats.UsageEvents += ev.UsageEvents
+		stats.PromptTokens += ev.PromptTokens
+		stats.CandidatesTokens += ev.CandidatesTokens
+		stats.ThoughtsTokens += ev.ThoughtsTokens
+		stats.ToolUsePromptTokens += ev.ToolUsePromptTokens
+		stats.TotalTokens += ev.TotalTokens
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
@@ -58,6 +74,10 @@ func analyzeLog(path string) (*summaryStats, error) {
 
 	if stats.TotalEvents > 0 {
 		stats.AvgRespLen = float64(totalRespLen) / float64(stats.TotalEvents)
+		stats.AvgTokensPerEvent = float64(stats.TotalTokens) / float64(stats.TotalEvents)
+	}
+	if stats.UsageEvents > 0 {
+		stats.AvgTokensPerCall = float64(stats.TotalTokens) / float64(stats.UsageEvents)
 	}
 
 	return stats, nil
@@ -72,6 +92,19 @@ func printSummary(stats *summaryStats) {
 	fmt.Printf("Sleep events: %d\n", stats.SleepEvents)
 	fmt.Printf("Tool calls: %d\n", stats.ToolCalls)
 	fmt.Printf("Avg response length: %.1f chars\n", stats.AvgRespLen)
+	if stats.TotalTokens > 0 {
+		fmt.Printf("Total tokens: %d (prompt=%d, candidates=%d, tool_use_prompt=%d, thoughts=%d)\n",
+			stats.TotalTokens,
+			stats.PromptTokens,
+			stats.CandidatesTokens,
+			stats.ToolUsePromptTokens,
+			stats.ThoughtsTokens,
+		)
+		fmt.Printf("Avg tokens/event: %.1f\n", stats.AvgTokensPerEvent)
+		if stats.UsageEvents > 0 {
+			fmt.Printf("Avg tokens/call: %.1f (calls=%d)\n", stats.AvgTokensPerCall, stats.UsageEvents)
+		}
+	}
 
 	fmt.Println("\nEvents by agent:")
 	agents := sortedKeys(stats.ByAgent)

@@ -55,6 +55,11 @@ const renderEvent = (ev) => {
   const action = ev.action || "action";
   const when = formatDateTime(ev.sim_time || ev.timestamp);
   const tick = Number.isFinite(ev.tick) ? ` • tick ${ev.tick}` : "";
+  const tokens =
+    ev.total_tokens && Number(ev.total_tokens) > 0
+      ? ` • tokens ${Number(ev.total_tokens)}${ev.usage_events ? `/${Number(ev.usage_events)} calls` : ""}`
+      : "";
+  const model = ev.model_name ? ` • <code>${escapeHTML(ev.model_name)}</code>` : "";
 
   const contentURL = ev.content_url || "";
   const contentTitle = ev.content_title || "";
@@ -63,7 +68,7 @@ const renderEvent = (ev) => {
   return `
     <div class="daily-entry event-entry">
       <div class="daily-header">
-        <span class="daily-time">${escapeHTML(when)}${escapeHTML(tick)}</span>
+        <span class="daily-time">${escapeHTML(when)}${escapeHTML(tick)}${escapeHTML(tokens)}${model}</span>
         <div class="daily-summary">
           ${whoURL ? `<a href="${escapeHTML(whoURL)}">${escapeHTML(who)}</a>` : escapeHTML(who)}
           <span class="post-meta"> · ${escapeHTML(action)}</span>

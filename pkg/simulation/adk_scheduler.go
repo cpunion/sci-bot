@@ -63,6 +63,7 @@ type agentRunner struct {
 	sessionID string
 	appName   string
 	session   session.Service
+	modelName string
 
 	actionWeights  map[string]float64
 	turnCount      int
@@ -236,6 +237,7 @@ func (s *ADKScheduler) AddAgent(ctx context.Context, persona *types.Persona) err
 		sessionID:      sess.Session.ID(),
 		appName:        "sci-bot",
 		session:        sessionService,
+		modelName:      modelForAgent.Name(),
 		actionWeights:  buildActionWeights(persona),
 		graceRemaining: s.graceTurns,
 		bellRung:       false,
@@ -392,10 +394,27 @@ func (s *ADKScheduler) RunTick(ctx context.Context) error {
 		var responseText string
 		toolCalls := make([]string, 0)
 		toolResponses := make([]string, 0)
+		usage := tokenTotals{}
 		for event, err := range ar.runner.Run(ctx, ar.persona.ID, ar.sessionID, msg, agent.RunConfig{}) {
 			if err != nil {
 				log.Printf("Agent error: %v", err)
 				continue
+			}
+			if event != nil && event.UsageMetadata != nil {
+				usage.UsageEvents++
+				usage.PromptTokens += int(event.UsageMetadata.PromptTokenCount)
+				usage.CandidatesTokens += int(event.UsageMetadata.CandidatesTokenCount)
+				usage.ThoughtsTokens += int(event.UsageMetadata.ThoughtsTokenCount)
+				usage.ToolUsePromptTokens += int(event.UsageMetadata.ToolUsePromptTokenCount)
+				usage.CachedContentTokens += int(event.UsageMetadata.CachedContentTokenCount)
+				if event.UsageMetadata.TotalTokenCount > 0 {
+					usage.TotalTokens += int(event.UsageMetadata.TotalTokenCount)
+				} else {
+					usage.TotalTokens += int(event.UsageMetadata.PromptTokenCount +
+						event.UsageMetadata.CandidatesTokenCount +
+						event.UsageMetadata.ToolUsePromptTokenCount +
+						event.UsageMetadata.ThoughtsTokenCount)
+				}
 			}
 			if event != nil && event.Content != nil {
 				for _, part := range event.Content.Parts {
@@ -415,7 +434,7 @@ func (s *ADKScheduler) RunTick(ctx context.Context) error {
 		}
 
 		s.updateAgentSummary(ctx, ar, prompt.text, responseText)
-		s.logEvent(ar, prompt, responseText, toolCalls, toolResponses)
+		s.logEvent(ar, prompt, responseText, toolCalls, toolResponses, usage)
 	}
 	s.simTime = s.simTime.Add(s.simStep)
 	if s.checkpointEvery > 0 && s.ticks%s.checkpointEvery == 0 {
@@ -591,7 +610,17 @@ func pickOne(items []string) string {
 	return items[rand.Intn(len(items))]
 }
 
-func (s *ADKScheduler) logEvent(ar *agentRunner, prompt actionPrompt, response string, toolCalls, toolResponses []string) {
+type tokenTotals struct {
+	UsageEvents         int
+	PromptTokens        int
+	CandidatesTokens    int
+	ThoughtsTokens      int
+	ToolUsePromptTokens int
+	CachedContentTokens int
+	TotalTokens         int
+}
+
+func (s *ADKScheduler) logEvent(ar *agentRunner, prompt actionPrompt, response string, toolCalls, toolResponses []string, usage tokenTotals) {
 	if s.logger == nil || ar == nil {
 		return
 	}
@@ -601,6 +630,7 @@ func (s *ADKScheduler) logEvent(ar *agentRunner, prompt actionPrompt, response s
 		Tick:           s.ticks,
 		AgentID:        ar.persona.ID,
 		AgentName:      ar.persona.Name,
+		ModelName:      ar.modelName,
 		Action:         prompt.action,
 		Prompt:         truncateRunes(prompt.text, 500),
 		Response:       truncateRunes(response, 500),
@@ -610,6 +640,13 @@ func (s *ADKScheduler) logEvent(ar *agentRunner, prompt actionPrompt, response s
 		BellRung:       ar.bellRung,
 		GraceRemaining: ar.graceRemaining,
 		Sleeping:       prompt.action == "sleep",
+		UsageEvents:          usage.UsageEvents,
+		PromptTokens:         usage.PromptTokens,
+		CandidatesTokens:     usage.CandidatesTokens,
+		ThoughtsTokens:       usage.ThoughtsTokens,
+		ToolUsePromptTokens:  usage.ToolUsePromptTokens,
+		CachedContentTokens:  usage.CachedContentTokens,
+		TotalTokens:          usage.TotalTokens,
 	}
 	if err := s.logger.LogEvent(ev); err != nil {
 		log.Printf("Failed to log event: %v", err)

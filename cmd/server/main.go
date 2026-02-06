@@ -79,6 +79,7 @@ type FeedEvent struct {
 	Tick           int       `json:"tick"`
 	AgentID        string    `json:"agent_id"`
 	AgentName      string    `json:"agent_name"`
+	ModelName      string    `json:"model_name,omitempty"`
 	Action         string    `json:"action"`
 	Prompt         string    `json:"prompt"`
 	Response       string    `json:"response"`
@@ -88,6 +89,14 @@ type FeedEvent struct {
 	BellRung       bool      `json:"bell_rung"`
 	GraceRemaining int       `json:"grace_remaining"`
 	Sleeping       bool      `json:"sleeping"`
+
+	UsageEvents         int `json:"usage_events,omitempty"`
+	PromptTokens        int `json:"prompt_tokens,omitempty"`
+	CandidatesTokens    int `json:"candidates_tokens,omitempty"`
+	ThoughtsTokens      int `json:"thoughts_tokens,omitempty"`
+	ToolUsePromptTokens int `json:"tool_use_prompt_tokens,omitempty"`
+	CachedContentTokens int `json:"cached_content_tokens,omitempty"`
+	TotalTokens         int `json:"total_tokens,omitempty"`
 
 	// Derived links for UI. Not part of the simulation log format.
 	ActorURL     string `json:"actor_url,omitempty"`
