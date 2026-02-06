@@ -429,9 +429,13 @@ func (s *ADKScheduler) RunTick(ctx context.Context) error {
 		toolCalls := make([]string, 0)
 		toolResponses := make([]string, 0)
 		usage := tokenTotals{}
+		runErrText := ""
 		for event, err := range ar.runner.Run(ctx, ar.persona.ID, ar.sessionID, msg, agent.RunConfig{}) {
 			if err != nil {
 				log.Printf("Agent error: %v", err)
+				if runErrText == "" {
+					runErrText = err.Error()
+				}
 				continue
 			}
 			if event != nil && event.UsageMetadata != nil {
@@ -467,8 +471,8 @@ func (s *ADKScheduler) RunTick(ctx context.Context) error {
 			}
 		}
 
-		s.updateAgentSummary(ctx, ar, prompt.text, responseText)
-		s.logEvent(ar, prompt, responseText, toolCalls, toolResponses, usage)
+		s.updateAgentSummary(ctx, ar, prompt.text, responseText, runErrText)
+		s.logEvent(ar, prompt, responseText, runErrText, toolCalls, toolResponses, usage)
 	}
 	s.simTime = s.simTime.Add(s.simStep)
 	if s.checkpointEvery > 0 && s.ticks%s.checkpointEvery == 0 {
@@ -654,7 +658,7 @@ type tokenTotals struct {
 	TotalTokens         int
 }
 
-func (s *ADKScheduler) logEvent(ar *agentRunner, prompt actionPrompt, response string, toolCalls, toolResponses []string, usage tokenTotals) {
+func (s *ADKScheduler) logEvent(ar *agentRunner, prompt actionPrompt, response, errText string, toolCalls, toolResponses []string, usage tokenTotals) {
 	if s.logger == nil || ar == nil {
 		return
 	}
@@ -668,6 +672,7 @@ func (s *ADKScheduler) logEvent(ar *agentRunner, prompt actionPrompt, response s
 		Action:              prompt.action,
 		Prompt:              truncateRunes(prompt.text, 500),
 		Response:            truncateRunes(response, 500),
+		Error:               truncateRunes(errText, 500),
 		ToolCalls:           toolCalls,
 		ToolResponses:       toolResponses,
 		TurnCount:           ar.turnCount,
@@ -687,7 +692,7 @@ func (s *ADKScheduler) logEvent(ar *agentRunner, prompt actionPrompt, response s
 	}
 }
 
-func (s *ADKScheduler) updateAgentSummary(ctx context.Context, ar *agentRunner, promptText, responseText string) {
+func (s *ADKScheduler) updateAgentSummary(ctx context.Context, ar *agentRunner, promptText, responseText, errText string) {
 	entry := buildSummaryEntry(s.simTime, promptText, responseText)
 	if entry == "" || ar.session == nil {
 		return
@@ -718,7 +723,7 @@ func (s *ADKScheduler) updateAgentSummary(ctx context.Context, ar *agentRunner, 
 		log.Printf("Failed to append summary event: %v", err)
 	}
 
-	if err := s.appendDailyLog(ar.persona.ID, promptText, responseText, entry); err != nil {
+	if err := s.appendDailyLog(ar.persona.ID, promptText, responseText, entry, errText); err != nil {
 		log.Printf("Failed to append daily log: %v", err)
 	}
 }
@@ -758,7 +763,7 @@ func truncateRunes(s string, maxChars int) string {
 	return string(runes[len(runes)-maxChars:])
 }
 
-func (s *ADKScheduler) appendDailyLog(agentID, promptText, responseText, entry string) error {
+func (s *ADKScheduler) appendDailyLog(agentID, promptText, responseText, entry, errText string) error {
 	if entry == "" {
 		return nil
 	}
@@ -781,6 +786,7 @@ func (s *ADKScheduler) appendDailyLog(agentID, promptText, responseText, entry s
 		Timestamp: s.simTime.Format(time.RFC3339),
 		Prompt:    strings.TrimSpace(promptText),
 		Reply:     strings.TrimSpace(responseText),
+		Error:     strings.TrimSpace(errText),
 		Raw:       entry,
 		Notes:     "",
 	}
@@ -794,6 +800,7 @@ type dailyLogEntry struct {
 	Timestamp string `json:"timestamp"`
 	Prompt    string `json:"prompt,omitempty"`
 	Reply     string `json:"reply,omitempty"`
+	Error     string `json:"error,omitempty"`
 	Notes     string `json:"notes,omitempty"`
 	Raw       string `json:"raw,omitempty"`
 }

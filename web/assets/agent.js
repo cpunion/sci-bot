@@ -150,6 +150,11 @@ const renderStructuredEntry = (entry) => {
           : ""
       }
       ${
+        entry.error
+          ? `<div class="daily-label">Error</div><div class="md">${renderMarkdown(String(entry.error))}</div>`
+          : ""
+      }
+      ${
         entry.reply
           ? `<div class="daily-label">Reply</div><div class="md">${renderMarkdown(entry.reply)}</div>`
           : ""

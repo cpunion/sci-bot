@@ -80,6 +80,11 @@ const renderEvent = (ev) => {
         </div>
       </div>
       ${
+        ev.error
+          ? `<div class="daily-label">Error</div><div class="md">${renderMarkdown(String(ev.error))}</div>`
+          : ""
+      }
+      ${
         ev.response
           ? `<div class="daily-label">Response</div><div class="md">${renderMarkdown(ev.response)}</div>`
           : ""
@@ -339,6 +344,7 @@ const hydrateFromDailyNotes = async (events) => {
         if (!entry) return;
         if (entry.prompt) ev.prompt = entry.prompt;
         if (entry.reply) ev.response = entry.reply;
+        if (entry.error) ev.error = entry.error;
       })()
     );
   }

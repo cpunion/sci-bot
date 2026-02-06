@@ -21,6 +21,7 @@ type EventLog struct {
 	Action         string    `json:"action"`
 	Prompt         string    `json:"prompt"`
 	Response       string    `json:"response"`
+	Error          string    `json:"error,omitempty"`
 	ToolCalls      []string  `json:"tool_calls,omitempty"`
 	ToolResponses  []string  `json:"tool_responses,omitempty"`
 	TurnCount      int       `json:"turn_count"`
