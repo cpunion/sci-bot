@@ -52,6 +52,7 @@ const renderAgent = (detail) => {
   const journalApproved = detail.journal_approved || [];
   const journalPending = detail.journal_pending || [];
   const dailyNotes = detail.daily_notes || [];
+  const dailyIndexOK = Boolean(detail.daily_index_ok);
 
   root.innerHTML = `
     <div class="agent-hero">
@@ -86,7 +87,13 @@ const renderAgent = (detail) => {
 
     <section class="feed-section">
       <h3>Daily Notes</h3>
-      ${dailyNotes.length ? dailyNotes.map(renderNote).join("") : `<div class="empty">No public notes yet.</div>`}
+      ${
+        !dailyIndexOK
+          ? `<div class="empty">Daily notes index missing. Run <code>go run ./cmd/index_data -data ./data/adk-simulation</code> to generate <code>daily/index.json</code>.</div>`
+          : dailyNotes.length
+            ? dailyNotes.map(renderNote).join("")
+            : `<div class="empty">No public notes yet.</div>`
+      }
     </section>
   `;
   typesetMath(root);
@@ -241,7 +248,7 @@ const init = async () => {
     approved.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
     pending.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
 
-    const dailyNotes = await loadDailyNotes(manifest, resolvedID, 10);
+    const daily = await loadDailyNotes(resolvedID, 10);
 
     renderAgent({
       agent,
@@ -249,7 +256,8 @@ const init = async () => {
       forum_comments: forumComments,
       journal_approved: approved,
       journal_pending: pending,
-      daily_notes: dailyNotes,
+      daily_notes: daily.notes,
+      daily_index_ok: daily.index_ok,
     });
   } catch (err) {
     root.innerHTML = `<div class="empty">${err.message}</div>`;
@@ -270,7 +278,7 @@ const isoDateAddDays = (isoDate, deltaDays) => {
   return dt.toISOString().slice(0, 10);
 };
 
-const loadDailyNotes = async (manifest, agentID, limitDays) => {
+const loadDailyNotes = async (agentID, limitDays) => {
   const days = Math.max(1, Number(limitDays) || 10);
   const out = [];
 
@@ -299,25 +307,11 @@ const loadDailyNotes = async (manifest, agentID, limitDays) => {
         // ignore stale index entries
       }
     }
-    return out;
+    return { notes: out, index_ok: true };
   }
 
-  // Fallback: probe recent dates from manifest sim_time (legacy data without index).
-  const simDate = String(manifest?.sim_time || "").slice(0, 10) || new Date().toISOString().slice(0, 10);
-  for (let i = 0; i < days; i++) {
-    const dateKey = isoDateAddDays(simDate, -i);
-    if (!dateKey) continue;
-    try {
-      const entries = await fetchJSONL(`agents/${encodeURIComponent(agentID)}/daily/${dateKey}.jsonl`);
-      if (entries && entries.length) {
-        out.push({ date: dateKey, entries });
-      }
-    } catch (_err) {
-      // ignore missing days
-    }
-  }
-
-  return out;
+  // Do not probe guessed filenames here (it creates lots of 404s on static hosting).
+  return { notes: out, index_ok: false };
 };
 
 init();
