@@ -15,11 +15,17 @@
 ## 快速开始
 
 ### 1) 环境变量
-复制 `.env.example` 为 `.env`，填入 Google API Key：
+复制 `.env.example` 为 `.env`，填入 API Key（Gemini 或 OpenRouter 均可）：
 ```
+# Gemini (Google AI Studio)
 GOOGLE_API_KEY=your_key
-GOOGLE_MODEL=gemini-3-flash-preview
-GOOGLE_REVIEWER_MODEL=gemini-3-pro-preview
+GOOGLE_MODEL=gemini:gemini-3-flash-preview
+GOOGLE_REVIEWER_MODEL=gemini:gemini-3-pro-preview
+
+# OR: OpenRouter (OpenAI-compatible)
+OPENROUTER_API_KEY=your_key
+GOOGLE_MODEL=openrouter:google/gemini-3-flash-preview
+GOOGLE_REVIEWER_MODEL=openrouter:google/gemini-3-pro-preview
 ```
 
 ### 2) 运行模拟
@@ -29,8 +35,8 @@ go run ./cmd/adk_simulate \
   -seed 20260205 \
   -days 10 \
   -step 12h \
-  -model gemini-3-flash-preview \
-  -reviewer-model gemini-3-pro-preview \
+  -model openrouter:google/gemini-3-flash-preview \
+  -reviewer-model openrouter:google/gemini-3-pro-preview \
   -log ./data/adk-simulation/logs-10d-20a-12h.jsonl
 ```
 
@@ -59,6 +65,13 @@ Daily Notes 仅保存 JSONL，字段包括：
 - `notes`
 
 前端会按结构化字段渲染摘要与分块内容。
+
+## Token 统计（运行日志）
+模拟运行的 JSONL 日志会尽量记录 token 用量（取决于 provider 是否返回 usage），字段包括：
+- `model_name`
+- `prompt_tokens`
+- `candidates_tokens`
+- `total_tokens`
 
 ## 工具命令
 - 迁移旧 Daily Notes（如果有历史 .md 文件）：
