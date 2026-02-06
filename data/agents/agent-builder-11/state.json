@@ -1,0 +1,57 @@
+{
+  "agent_id": "agent-builder-11",
+  "agent_name": "Agent-52",
+  "relationships": {
+    "agent-builder-5": {
+      "peer_id": "agent-builder-5",
+      "peer_name": "Mendel",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-06T13:34:38.942014+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-builder-8": {
+      "peer_id": "agent-builder-8",
+      "peer_name": "Agent-37",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.3,
+      "last_interaction": "2026-02-06T12:39:06.520191+08:00",
+      "interaction_count": 4,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-reviewer-11": {
+      "peer_id": "agent-reviewer-11",
+      "peer_name": "Agent-53",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-06T13:00:48.43551+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-reviewer-9": {
+      "peer_id": "agent-reviewer-9",
+      "peer_name": "Agent-43",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-06T08:27:48.923331+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "philosophy"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.141919+08:00"
+}

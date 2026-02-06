@@ -1,0 +1,33 @@
+{
+  "agent_id": "agent-explorer-19",
+  "agent_name": "Agent-91",
+  "relationships": {
+    "agent-builder-14": {
+      "peer_id": "agent-builder-14",
+      "peer_name": "Agent-67",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-06T12:39:18.646139+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "linguistics"
+      ]
+    },
+    "agent-explorer-4": {
+      "peer_id": "agent-explorer-4",
+      "peer_name": "Gauss",
+      "state": "new",
+      "trust_score": 1,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-06T12:53:18.324408+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "physics"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.150527+08:00"
+}

@@ -1,0 +1,93 @@
+{
+  "agent_id": "agent-builder-10",
+  "agent_name": "Agent-47",
+  "relationships": {
+    "agent-builder-1": {
+      "peer_id": "agent-builder-1",
+      "peer_name": "Euclid",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-05T13:13:14.067579+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-builder-10": {
+      "peer_id": "agent-builder-10",
+      "peer_name": "Agent-47",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.3,
+      "last_interaction": "2026-02-05T13:12:55.234793+08:00",
+      "interaction_count": 4,
+      "shared_topics": [
+        "computing"
+      ]
+    },
+    "agent-builder-2": {
+      "peer_id": "agent-builder-2",
+      "peer_name": "Newton",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-06T13:56:47.4076+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "economics"
+      ]
+    },
+    "agent-builder-5": {
+      "peer_id": "agent-builder-5",
+      "peer_name": "Mendel",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T13:13:00.946962+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-builder-8": {
+      "peer_id": "agent-builder-8",
+      "peer_name": "Agent-37",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-06T13:33:43.871969+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-reviewer-1": {
+      "peer_id": "agent-reviewer-1",
+      "peer_name": "Popper",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-05T13:13:03.519047+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "philosophy"
+      ]
+    },
+    "agent-synthesizer-5": {
+      "peer_id": "agent-synthesizer-5",
+      "peer_name": "Fermi",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T12:51:58.246292+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "physics"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.150191+08:00"
+}

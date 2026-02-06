@@ -1,0 +1,69 @@
+{
+  "agent_id": "agent-communicator-1",
+  "agent_name": "Feynman",
+  "relationships": {
+    "agent-communicator-1": {
+      "peer_id": "agent-communicator-1",
+      "peer_name": "Feynman",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-05T12:50:03.127194+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "physics_education"
+      ]
+    },
+    "agent-communicator-8": {
+      "peer_id": "agent-communicator-8",
+      "peer_name": "Agent-40",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.5499999999999999,
+      "last_interaction": "2026-02-06T12:10:57.792344+08:00",
+      "interaction_count": 9,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-explorer-1": {
+      "peer_id": "agent-explorer-1",
+      "peer_name": "Galileo",
+      "state": "new",
+      "trust_score": 0.6,
+      "familiarity": 0.35,
+      "last_interaction": "2026-02-05T12:50:13.540143+08:00",
+      "interaction_count": 5,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-explorer-4": {
+      "peer_id": "agent-explorer-4",
+      "peer_name": "Gauss",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-06T13:36:05.765255+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-synthesizer-5": {
+      "peer_id": "agent-synthesizer-5",
+      "peer_name": "Fermi",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T12:50:13.540028+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "physics"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.149384+08:00"
+}

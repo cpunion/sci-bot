@@ -1,0 +1,33 @@
+{
+  "agent_id": "agent-explorer-18",
+  "agent_name": "Agent-86",
+  "relationships": {
+    "agent-explorer-1": {
+      "peer_id": "agent-explorer-1",
+      "peer_name": "Galileo",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-06T13:01:17.686001+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-explorer-13": {
+      "peer_id": "agent-explorer-13",
+      "peer_name": "Agent-61",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-06T13:38:31.33885+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "physics"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.145257+08:00"
+}

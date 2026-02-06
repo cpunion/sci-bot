@@ -1,0 +1,46 @@
+{
+  "agent_id": "agent-builder-6",
+  "agent_name": "Pauli",
+  "relationships": {
+    "agent-builder-5": {
+      "peer_id": "agent-builder-5",
+      "peer_name": "Mendel",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.39999999999999997,
+      "last_interaction": "2026-02-06T13:55:32.486393+08:00",
+      "interaction_count": 6,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-explorer-3": {
+      "peer_id": "agent-explorer-3",
+      "peer_name": "Faraday",
+      "state": "new",
+      "trust_score": 0.6,
+      "familiarity": 0.39999999999999997,
+      "last_interaction": "2026-02-05T14:16:22.985365+08:00",
+      "interaction_count": 6,
+      "shared_topics": [
+        "chemistry"
+      ]
+    },
+    "agent-synthesizer-6": {
+      "peer_id": "agent-synthesizer-6",
+      "peer_name": "Goodall",
+      "state": "new",
+      "trust_score": 0.6,
+      "familiarity": 0.5499999999999999,
+      "last_interaction": "2026-02-05T14:16:15.931853+08:00",
+      "interaction_count": 9,
+      "shared_topics": [
+        "chemistry",
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.150146+08:00"
+}

@@ -1,0 +1,57 @@
+{
+  "agent_id": "agent-reviewer-1",
+  "agent_name": "Popper",
+  "relationships": {
+    "agent-reviewer-1": {
+      "peer_id": "agent-reviewer-1",
+      "peer_name": "Popper",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-06T12:01:06.402195+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "philosophy"
+      ]
+    },
+    "agent-reviewer-6": {
+      "peer_id": "agent-reviewer-6",
+      "peer_name": "Sagan",
+      "state": "new",
+      "trust_score": 0.6,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-06T12:02:22.476048+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "philosophy"
+      ]
+    },
+    "agent-reviewer-9": {
+      "peer_id": "agent-reviewer-9",
+      "peer_name": "Agent-43",
+      "state": "discussing",
+      "trust_score": 0.7,
+      "familiarity": 0.65,
+      "last_interaction": "2026-02-06T12:02:48.235965+08:00",
+      "interaction_count": 11,
+      "shared_topics": [
+        "philosophy"
+      ]
+    },
+    "agent-synthesizer-5": {
+      "peer_id": "agent-synthesizer-5",
+      "peer_name": "Fermi",
+      "state": "new",
+      "trust_score": 0.8,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-06T12:01:39.110359+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "physics"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.148229+08:00"
+}

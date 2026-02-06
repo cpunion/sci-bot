@@ -1,0 +1,33 @@
+{
+  "agent_id": "agent-explorer-14",
+  "agent_name": "Agent-66",
+  "relationships": {
+    "agent-communicator-8": {
+      "peer_id": "agent-communicator-8",
+      "peer_name": "Agent-40",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T14:02:13.637939+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-synthesizer-5": {
+      "peer_id": "agent-synthesizer-5",
+      "peer_name": "Fermi",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T14:02:07.356861+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "physics"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.147942+08:00"
+}

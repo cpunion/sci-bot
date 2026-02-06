@@ -1,0 +1,45 @@
+{
+  "agent_id": "agent-reviewer-12",
+  "agent_name": "Agent-58",
+  "relationships": {
+    "agent-builder-8": {
+      "peer_id": "agent-builder-8",
+      "peer_name": "Agent-37",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.3,
+      "last_interaction": "2026-02-05T16:34:08.413633+08:00",
+      "interaction_count": 4,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-explorer-3": {
+      "peer_id": "agent-explorer-3",
+      "peer_name": "Faraday",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T16:33:09.164935+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "chemistry"
+      ]
+    },
+    "agent-reviewer-9": {
+      "peer_id": "agent-reviewer-9",
+      "peer_name": "Agent-43",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T16:33:36.72028+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "philosophy"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.144695+08:00"
+}

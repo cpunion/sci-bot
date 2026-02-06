@@ -1,0 +1,33 @@
+{
+  "agent_id": "agent-builder-18",
+  "agent_name": "Agent-87",
+  "relationships": {
+    "agent-builder-8": {
+      "peer_id": "agent-builder-8",
+      "peer_name": "Agent-37",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-06T13:38:18.82799+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-synthesizer-6": {
+      "peer_id": "agent-synthesizer-6",
+      "peer_name": "Goodall",
+      "state": "new",
+      "trust_score": 0.6,
+      "familiarity": 0.35,
+      "last_interaction": "2026-02-06T13:59:00.031708+08:00",
+      "interaction_count": 5,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.143391+08:00"
+}

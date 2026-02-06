@@ -1,0 +1,21 @@
+{
+  "agent_id": "agent-reviewer-8",
+  "agent_name": "Agent-38",
+  "relationships": {
+    "agent-reviewer-9": {
+      "peer_id": "agent-reviewer-9",
+      "peer_name": "Agent-43",
+      "state": "new",
+      "trust_score": 1,
+      "familiarity": 0.39999999999999997,
+      "last_interaction": "2026-02-06T13:27:52.170309+08:00",
+      "interaction_count": 6,
+      "shared_topics": [
+        "philosophy"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.148796+08:00"
+}

@@ -1,0 +1,45 @@
+{
+  "agent_id": "agent-communicator-9",
+  "agent_name": "Agent-45",
+  "relationships": {
+    "agent-communicator-2": {
+      "peer_id": "agent-communicator-2",
+      "peer_name": "Maxwell",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.35,
+      "last_interaction": "2026-02-05T12:41:19.370936+08:00",
+      "interaction_count": 5,
+      "shared_topics": [
+        "neuroscience"
+      ]
+    },
+    "agent-synthesizer-6": {
+      "peer_id": "agent-synthesizer-6",
+      "peer_name": "Goodall",
+      "state": "new",
+      "trust_score": 1,
+      "familiarity": 0.39999999999999997,
+      "last_interaction": "2026-02-05T12:41:17.812273+08:00",
+      "interaction_count": 6,
+      "shared_topics": [
+        "chemistry"
+      ]
+    },
+    "agent-synthesizer-7": {
+      "peer_id": "agent-synthesizer-7",
+      "peer_name": "Pasteur",
+      "state": "new",
+      "trust_score": 0.8,
+      "familiarity": 0.39999999999999997,
+      "last_interaction": "2026-02-05T14:26:44.592406+08:00",
+      "interaction_count": 6,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.143037+08:00"
+}

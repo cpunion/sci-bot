@@ -1,0 +1,45 @@
+{
+  "agent_id": "agent-communicator-16",
+  "agent_name": "Agent-80",
+  "relationships": {
+    "agent-builder-10": {
+      "peer_id": "agent-builder-10",
+      "peer_name": "Agent-47",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T14:19:49.587772+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "computing"
+      ]
+    },
+    "agent-explorer-3": {
+      "peer_id": "agent-explorer-3",
+      "peer_name": "Faraday",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T14:19:45.258843+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "chemistry"
+      ]
+    },
+    "agent-synthesizer-6": {
+      "peer_id": "agent-synthesizer-6",
+      "peer_name": "Goodall",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T14:19:57.942638+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "chemistry"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.149202+08:00"
+}

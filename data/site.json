@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "generated_at": "2026-02-06T16:58:37.115967+08:00",
+  "sim_time": "2026-04-02T11:58:59.888537+08:00",
+  "step_seconds": 43200,
+  "agents_path": "agents/agents.json",
+  "forum_path": "forum/forum.json",
+  "journal_path": "journal/journal.json",
+  "feed_index_path": "feed/index.json",
+  "logs": [
+    "logs-10d-50a-12h-3pt.jsonl",
+    "logs-20d-50a-12h-3pt.jsonl",
+    "logs-25d-100a-12h-15pt.jsonl",
+    "logs-35d-100a-12h-15pt.jsonl",
+    "logs-openrouter-10d-100a-12h-15pt.jsonl",
+    "logs-openrouter-10d-100a-12h-25pt.jsonl"
+  ],
+  "default_log": "logs-openrouter-10d-100a-12h-25pt.jsonl",
+  "stats": {
+    "agent_count": 100,
+    "forum_threads": 75,
+    "journal_pending": 14
+  }
+}

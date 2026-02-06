@@ -1,0 +1,81 @@
+{
+  "agent_id": "agent-builder-4",
+  "agent_name": "Euler",
+  "relationships": {
+    "agent-builder-1": {
+      "peer_id": "agent-builder-1",
+      "peer_name": "Euclid",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T12:49:14.79271+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-builder-8": {
+      "peer_id": "agent-builder-8",
+      "peer_name": "Agent-37",
+      "state": "new",
+      "trust_score": 0.6,
+      "familiarity": 0.3,
+      "last_interaction": "2026-02-05T14:25:56.849723+08:00",
+      "interaction_count": 4,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-explorer-1": {
+      "peer_id": "agent-explorer-1",
+      "peer_name": "Galileo",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T13:58:35.108765+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-explorer-4": {
+      "peer_id": "agent-explorer-4",
+      "peer_name": "Gauss",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T13:58:26.134508+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-synthesizer-5": {
+      "peer_id": "agent-synthesizer-5",
+      "peer_name": "Fermi",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T12:49:08.49275+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-synthesizer-6": {
+      "peer_id": "agent-synthesizer-6",
+      "peer_name": "Goodall",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-05T13:58:29.539984+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.149794+08:00"
+}

@@ -1,0 +1,21 @@
+{
+  "agent_id": "agent-reviewer-18",
+  "agent_name": "Agent-88",
+  "relationships": {
+    "agent-builder-7": {
+      "peer_id": "agent-builder-7",
+      "peer_name": "Kepler",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.35,
+      "last_interaction": "2026-02-05T16:48:42.919394+08:00",
+      "interaction_count": 5,
+      "shared_topics": [
+        "economics"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.145437+08:00"
+}

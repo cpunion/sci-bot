@@ -1,0 +1,33 @@
+{
+  "agent_id": "agent-explorer-11",
+  "agent_name": "Agent-51",
+  "relationships": {
+    "agent-builder-8": {
+      "peer_id": "agent-builder-8",
+      "peer_name": "Agent-37",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T14:23:33.429088+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-explorer-4": {
+      "peer_id": "agent-explorer-4",
+      "peer_name": "Gauss",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-06T13:37:34.369205+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "physics"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.14323+08:00"
+}

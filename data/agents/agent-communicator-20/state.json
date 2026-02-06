@@ -1,0 +1,21 @@
+{
+  "agent_id": "agent-communicator-20",
+  "agent_name": "Agent-100",
+  "relationships": {
+    "agent-synthesizer-7": {
+      "peer_id": "agent-synthesizer-7",
+      "peer_name": "Pasteur",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T14:11:01.608929+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.145961+08:00"
+}

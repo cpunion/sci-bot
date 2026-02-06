@@ -1,0 +1,33 @@
+{
+  "agent_id": "agent-reviewer-2",
+  "agent_name": "Turing",
+  "relationships": {
+    "agent-explorer-20": {
+      "peer_id": "agent-explorer-20",
+      "peer_name": "Agent-96",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-06T12:10:15.943775+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "biology"
+      ]
+    },
+    "agent-synthesizer-6": {
+      "peer_id": "agent-synthesizer-6",
+      "peer_name": "Goodall",
+      "state": "new",
+      "trust_score": 0.7,
+      "familiarity": 0.35,
+      "last_interaction": "2026-02-06T12:10:01.048756+08:00",
+      "interaction_count": 5,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.139408+08:00"
+}

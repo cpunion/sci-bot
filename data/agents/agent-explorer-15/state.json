@@ -1,0 +1,21 @@
+{
+  "agent_id": "agent-explorer-15",
+  "agent_name": "Agent-71",
+  "relationships": {
+    "agent-explorer-1": {
+      "peer_id": "agent-explorer-1",
+      "peer_name": "Galileo",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-06T12:39:34.796682+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "physics"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.149102+08:00"
+}

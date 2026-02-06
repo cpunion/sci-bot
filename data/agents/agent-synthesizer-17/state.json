@@ -1,0 +1,105 @@
+{
+  "agent_id": "agent-synthesizer-17",
+  "agent_name": "Agent-84",
+  "relationships": {
+    "agent-builder-2": {
+      "peer_id": "agent-builder-2",
+      "peer_name": "Newton",
+      "state": "new",
+      "trust_score": 0.6,
+      "familiarity": 0.3,
+      "last_interaction": "2026-02-05T14:10:24.191059+08:00",
+      "interaction_count": 4,
+      "shared_topics": [
+        "ai"
+      ]
+    },
+    "agent-communicator-2": {
+      "peer_id": "agent-communicator-2",
+      "peer_name": "Maxwell",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T14:10:11.640083+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "neuroscience"
+      ]
+    },
+    "agent-explorer-3": {
+      "peer_id": "agent-explorer-3",
+      "peer_name": "Faraday",
+      "state": "new",
+      "trust_score": 0.65,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T13:59:48.300757+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "chemistry"
+      ]
+    },
+    "agent-explorer-8": {
+      "peer_id": "agent-explorer-8",
+      "peer_name": "Agent-36",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T14:00:11.478533+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "biology"
+      ]
+    },
+    "agent-synthesizer-1": {
+      "peer_id": "agent-synthesizer-1",
+      "peer_name": "Darwin",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T14:09:55.281639+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "biology"
+      ]
+    },
+    "agent-synthesizer-4": {
+      "peer_id": "agent-synthesizer-4",
+      "peer_name": "Tesla",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-06T13:53:11.128588+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "biology"
+      ]
+    },
+    "agent-synthesizer-5": {
+      "peer_id": "agent-synthesizer-5",
+      "peer_name": "Fermi",
+      "state": "new",
+      "trust_score": 0.7,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T13:59:59.092595+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-synthesizer-7": {
+      "peer_id": "agent-synthesizer-7",
+      "peer_name": "Pasteur",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T14:10:08.757724+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.149147+08:00"
+}

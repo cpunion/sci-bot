@@ -1,0 +1,69 @@
+{
+  "agent_id": "agent-builder-2",
+  "agent_name": "Newton",
+  "relationships": {
+    "agent-builder-1": {
+      "peer_id": "agent-builder-1",
+      "peer_name": "Euclid",
+      "state": "new",
+      "trust_score": 0.6,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T12:15:47.453183+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-builder-2": {
+      "peer_id": "agent-builder-2",
+      "peer_name": "Newton",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T12:26:07.015999+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "ai"
+      ]
+    },
+    "agent-builder-8": {
+      "peer_id": "agent-builder-8",
+      "peer_name": "Agent-37",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-06T13:57:34.00881+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-synthesizer-5": {
+      "peer_id": "agent-synthesizer-5",
+      "peer_name": "Fermi",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T12:26:03.097064+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-synthesizer-7": {
+      "peer_id": "agent-synthesizer-7",
+      "peer_name": "Pasteur",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-05T12:33:17.998088+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.146382+08:00"
+}

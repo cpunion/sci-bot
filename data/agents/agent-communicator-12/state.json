@@ -1,0 +1,33 @@
+{
+  "agent_id": "agent-communicator-12",
+  "agent_name": "Agent-60",
+  "relationships": {
+    "agent-builder-10": {
+      "peer_id": "agent-builder-10",
+      "peer_name": "Agent-47",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-06T11:53:31.656019+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "computing"
+      ]
+    },
+    "agent-reviewer-9": {
+      "peer_id": "agent-reviewer-9",
+      "peer_name": "Agent-43",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-06T13:55:51.877957+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "philosophy"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.148944+08:00"
+}

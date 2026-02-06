@@ -1,0 +1,57 @@
+{
+  "agent_id": "agent-synthesizer-7",
+  "agent_name": "Pasteur",
+  "relationships": {
+    "agent-synthesizer-4": {
+      "peer_id": "agent-synthesizer-4",
+      "peer_name": "Tesla",
+      "state": "new",
+      "trust_score": 0.65,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T12:32:20.850998+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "biology"
+      ]
+    },
+    "agent-synthesizer-5": {
+      "peer_id": "agent-synthesizer-5",
+      "peer_name": "Fermi",
+      "state": "new",
+      "trust_score": 0.75,
+      "familiarity": 0.3,
+      "last_interaction": "2026-02-05T12:32:06.227608+08:00",
+      "interaction_count": 4,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-synthesizer-6": {
+      "peer_id": "agent-synthesizer-6",
+      "peer_name": "Goodall",
+      "state": "new",
+      "trust_score": 0.7999999999999999,
+      "familiarity": 0.35,
+      "last_interaction": "2026-02-05T12:31:47.347972+08:00",
+      "interaction_count": 5,
+      "shared_topics": [
+        "biology"
+      ]
+    },
+    "agent-synthesizer-7": {
+      "peer_id": "agent-synthesizer-7",
+      "peer_name": "Pasteur",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-05T12:32:13.64309+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.144394+08:00"
+}

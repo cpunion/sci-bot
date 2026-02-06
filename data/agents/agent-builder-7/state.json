@@ -1,0 +1,93 @@
+{
+  "agent_id": "agent-builder-7",
+  "agent_name": "Kepler",
+  "relationships": {
+    "agent-builder-1": {
+      "peer_id": "agent-builder-1",
+      "peer_name": "Euclid",
+      "state": "new",
+      "trust_score": 0.7,
+      "familiarity": 0.5499999999999999,
+      "last_interaction": "2026-02-05T14:12:08.181153+08:00",
+      "interaction_count": 9,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-builder-2": {
+      "peer_id": "agent-builder-2",
+      "peer_name": "Newton",
+      "state": "new",
+      "trust_score": 0.6,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-05T13:05:15.644698+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "ai"
+      ]
+    },
+    "agent-builder-5": {
+      "peer_id": "agent-builder-5",
+      "peer_name": "Mendel",
+      "state": "new",
+      "trust_score": 0.65,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T13:05:22.507955+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-builder-7": {
+      "peer_id": "agent-builder-7",
+      "peer_name": "Kepler",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-05T13:05:17.424978+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "economics"
+      ]
+    },
+    "agent-builder-8": {
+      "peer_id": "agent-builder-8",
+      "peer_name": "Agent-37",
+      "state": "new",
+      "trust_score": 0.6,
+      "familiarity": 0.44999999999999996,
+      "last_interaction": "2026-02-06T13:57:48.204091+08:00",
+      "interaction_count": 7,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-synthesizer-5": {
+      "peer_id": "agent-synthesizer-5",
+      "peer_name": "Fermi",
+      "state": "new",
+      "trust_score": 0.6,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T13:04:54.488749+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-synthesizer-6": {
+      "peer_id": "agent-synthesizer-6",
+      "peer_name": "Goodall",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T12:18:15.422894+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.138199+08:00"
+}

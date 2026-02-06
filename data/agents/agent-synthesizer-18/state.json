@@ -1,0 +1,21 @@
+{
+  "agent_id": "agent-synthesizer-18",
+  "agent_name": "Agent-89",
+  "relationships": {
+    "agent-synthesizer-5": {
+      "peer_id": "agent-synthesizer-5",
+      "peer_name": "Fermi",
+      "state": "new",
+      "trust_score": 0.7,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-05T14:15:25.873549+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "physics"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.149295+08:00"
+}

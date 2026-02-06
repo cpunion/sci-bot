@@ -1,0 +1,57 @@
+{
+  "agent_id": "agent-reviewer-7",
+  "agent_name": "Laplace",
+  "relationships": {
+    "agent-reviewer-16": {
+      "peer_id": "agent-reviewer-16",
+      "peer_name": "Agent-78",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-05T16:49:21.079633+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "methodology"
+      ]
+    },
+    "agent-reviewer-6": {
+      "peer_id": "agent-reviewer-6",
+      "peer_name": "Sagan",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.3,
+      "last_interaction": "2026-02-06T12:36:36.704516+08:00",
+      "interaction_count": 4,
+      "shared_topics": [
+        "philosophy"
+      ]
+    },
+    "agent-reviewer-8": {
+      "peer_id": "agent-reviewer-8",
+      "peer_name": "Agent-38",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T16:44:13.437154+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "philosophy"
+      ]
+    },
+    "agent-reviewer-9": {
+      "peer_id": "agent-reviewer-9",
+      "peer_name": "Agent-43",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-05T16:44:13.437114+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "philosophy"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.146848+08:00"
+}

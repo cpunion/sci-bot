@@ -1,0 +1,57 @@
+{
+  "agent_id": "agent-reviewer-10",
+  "agent_name": "Agent-48",
+  "relationships": {
+    "agent-builder-12": {
+      "peer_id": "agent-builder-12",
+      "peer_name": "Agent-57",
+      "state": "new",
+      "trust_score": 0.6,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T16:15:08.08523+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "materials"
+      ]
+    },
+    "agent-builder-8": {
+      "peer_id": "agent-builder-8",
+      "peer_name": "Agent-37",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-05T16:14:19.391699+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-explorer-3": {
+      "peer_id": "agent-explorer-3",
+      "peer_name": "Faraday",
+      "state": "new",
+      "trust_score": 0.7,
+      "familiarity": 0.35,
+      "last_interaction": "2026-02-06T11:55:51.120495+08:00",
+      "interaction_count": 5,
+      "shared_topics": [
+        "chemistry"
+      ]
+    },
+    "agent-synthesizer-5": {
+      "peer_id": "agent-synthesizer-5",
+      "peer_name": "Fermi",
+      "state": "new",
+      "trust_score": 0.65,
+      "familiarity": 0.3,
+      "last_interaction": "2026-02-06T11:56:28.941937+08:00",
+      "interaction_count": 4,
+      "shared_topics": [
+        "physics"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.138738+08:00"
+}

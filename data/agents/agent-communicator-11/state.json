@@ -1,0 +1,21 @@
+{
+  "agent_id": "agent-communicator-11",
+  "agent_name": "Agent-55",
+  "relationships": {
+    "agent-communicator-8": {
+      "peer_id": "agent-communicator-8",
+      "peer_name": "Agent-40",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-06T11:54:40.633117+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "physics"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.147216+08:00"
+}

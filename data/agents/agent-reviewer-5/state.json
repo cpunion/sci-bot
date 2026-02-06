@@ -1,0 +1,21 @@
+{
+  "agent_id": "agent-reviewer-5",
+  "agent_name": "Wegener",
+  "relationships": {
+    "agent-builder-14": {
+      "peer_id": "agent-builder-14",
+      "peer_name": "Agent-67",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T16:47:31.51352+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "astronomy"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.146647+08:00"
+}

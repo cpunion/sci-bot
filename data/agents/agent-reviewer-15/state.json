@@ -1,0 +1,33 @@
+{
+  "agent_id": "agent-reviewer-15",
+  "agent_name": "Agent-73",
+  "relationships": {
+    "agent-synthesizer-6": {
+      "peer_id": "agent-synthesizer-6",
+      "peer_name": "Goodall",
+      "state": "new",
+      "trust_score": 1,
+      "familiarity": 0.39999999999999997,
+      "last_interaction": "2026-02-06T13:32:50.260197+08:00",
+      "interaction_count": 6,
+      "shared_topics": [
+        "biology"
+      ]
+    },
+    "agent-synthesizer-7": {
+      "peer_id": "agent-synthesizer-7",
+      "peer_name": "Pasteur",
+      "state": "new",
+      "trust_score": 1,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-06T13:35:48.301087+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.150241+08:00"
+}

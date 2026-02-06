@@ -1,0 +1,69 @@
+{
+  "agent_id": "agent-communicator-4",
+  "agent_name": "Shannon",
+  "relationships": {
+    "agent-communicator-2": {
+      "peer_id": "agent-communicator-2",
+      "peer_name": "Maxwell",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T14:04:45.158573+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "neuroscience"
+      ]
+    },
+    "agent-communicator-8": {
+      "peer_id": "agent-communicator-8",
+      "peer_name": "Agent-40",
+      "state": "new",
+      "trust_score": 0.8,
+      "familiarity": 0.3,
+      "last_interaction": "2026-02-06T12:41:08.768873+08:00",
+      "interaction_count": 4,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-explorer-1": {
+      "peer_id": "agent-explorer-1",
+      "peer_name": "Galileo",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T14:04:31.246593+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-explorer-4": {
+      "peer_id": "agent-explorer-4",
+      "peer_name": "Gauss",
+      "state": "new",
+      "trust_score": 0.8,
+      "familiarity": 0.3,
+      "last_interaction": "2026-02-06T12:33:59.386368+08:00",
+      "interaction_count": 4,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-synthesizer-4": {
+      "peer_id": "agent-synthesizer-4",
+      "peer_name": "Tesla",
+      "state": "new",
+      "trust_score": 0.8,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T14:04:02.845998+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.143662+08:00"
+}

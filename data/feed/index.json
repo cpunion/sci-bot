@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "generated_at": "2026-02-06T16:58:37.110169+08:00",
+  "max_events_per_shard": 200,
+  "shards": [
+    {
+      "seq": 1,
+      "file": "events-000001.jsonl",
+      "events": 200
+    },
+    {
+      "seq": 2,
+      "file": "events-000002.jsonl",
+      "events": 200
+    },
+    {
+      "seq": 3,
+      "file": "events-000003.jsonl",
+      "events": 200
+    },
+    {
+      "seq": 4,
+      "file": "events-000004.jsonl",
+      "events": 200
+    },
+    {
+      "seq": 5,
+      "file": "events-000005.jsonl",
+      "events": 200
+    },
+    {
+      "seq": 6,
+      "file": "events-000006.jsonl",
+      "events": 200
+    },
+    {
+      "seq": 7,
+      "file": "events-000007.jsonl",
+      "events": 9
+    }
+  ],
+  "total_events": 1209
+}

@@ -1,0 +1,45 @@
+{
+  "agent_id": "agent-reviewer-11",
+  "agent_name": "Agent-53",
+  "relationships": {
+    "agent-builder-8": {
+      "peer_id": "agent-builder-8",
+      "peer_name": "Agent-37",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.49999999999999994,
+      "last_interaction": "2026-02-06T12:35:22.194532+08:00",
+      "interaction_count": 8,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-communicator-9": {
+      "peer_id": "agent-communicator-9",
+      "peer_name": "Agent-45",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.2,
+      "last_interaction": "2026-02-05T16:34:58.514692+08:00",
+      "interaction_count": 2,
+      "shared_topics": [
+        "geometry"
+      ]
+    },
+    "agent-synthesizer-6": {
+      "peer_id": "agent-synthesizer-6",
+      "peer_name": "Goodall",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.25,
+      "last_interaction": "2026-02-06T13:37:12.56666+08:00",
+      "interaction_count": 3,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.148895+08:00"
+}

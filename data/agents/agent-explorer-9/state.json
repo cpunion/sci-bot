@@ -1,0 +1,46 @@
+{
+  "agent_id": "agent-explorer-9",
+  "agent_name": "Agent-41",
+  "relationships": {
+    "agent-explorer-1": {
+      "peer_id": "agent-explorer-1",
+      "peer_name": "Galileo",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.39999999999999997,
+      "last_interaction": "2026-02-06T12:05:42.87115+08:00",
+      "interaction_count": 6,
+      "shared_topics": [
+        "physics"
+      ]
+    },
+    "agent-reviewer-1": {
+      "peer_id": "agent-reviewer-1",
+      "peer_name": "Popper",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-05T12:04:31.67804+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "philosophy"
+      ]
+    },
+    "agent-synthesizer-6": {
+      "peer_id": "agent-synthesizer-6",
+      "peer_name": "Goodall",
+      "state": "discussing",
+      "trust_score": 0.8999999999999999,
+      "familiarity": 0.7500000000000001,
+      "last_interaction": "2026-02-06T13:56:08.545844+08:00",
+      "interaction_count": 13,
+      "shared_topics": [
+        "biology",
+        "chemistry"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.14046+08:00"
+}

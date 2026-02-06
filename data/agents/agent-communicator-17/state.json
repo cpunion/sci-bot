@@ -1,0 +1,33 @@
+{
+  "agent_id": "agent-communicator-17",
+  "agent_name": "Agent-85",
+  "relationships": {
+    "agent-communicator-2": {
+      "peer_id": "agent-communicator-2",
+      "peer_name": "Maxwell",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-06T12:53:05.547033+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "neuroscience"
+      ]
+    },
+    "agent-synthesizer-2": {
+      "peer_id": "agent-synthesizer-2",
+      "peer_name": "Noether",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-06T13:28:07.316062+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "neuroscience"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.140795+08:00"
+}

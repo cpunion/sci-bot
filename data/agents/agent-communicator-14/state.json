@@ -1,0 +1,45 @@
+{
+  "agent_id": "agent-communicator-14",
+  "agent_name": "Agent-70",
+  "relationships": {
+    "agent-communicator-3": {
+      "peer_id": "agent-communicator-3",
+      "peer_name": "Planck",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-06T13:37:25.081108+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "mathematics"
+      ]
+    },
+    "agent-synthesizer-6": {
+      "peer_id": "agent-synthesizer-6",
+      "peer_name": "Goodall",
+      "state": "new",
+      "trust_score": 0.7,
+      "familiarity": 0.39999999999999997,
+      "last_interaction": "2026-02-05T14:28:25.219999+08:00",
+      "interaction_count": 6,
+      "shared_topics": [
+        "biology"
+      ]
+    },
+    "agent-synthesizer-7": {
+      "peer_id": "agent-synthesizer-7",
+      "peer_name": "Pasteur",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-06T12:52:25.213751+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.149049+08:00"
+}

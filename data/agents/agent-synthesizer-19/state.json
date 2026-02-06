@@ -1,0 +1,33 @@
+{
+  "agent_id": "agent-synthesizer-19",
+  "agent_name": "Agent-94",
+  "relationships": {
+    "agent-synthesizer-1": {
+      "peer_id": "agent-synthesizer-1",
+      "peer_name": "Darwin",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.15000000000000002,
+      "last_interaction": "2026-02-06T11:51:11.567878+08:00",
+      "interaction_count": 1,
+      "shared_topics": [
+        "biology"
+      ]
+    },
+    "agent-synthesizer-4": {
+      "peer_id": "agent-synthesizer-4",
+      "peer_name": "Tesla",
+      "state": "new",
+      "trust_score": 0.5,
+      "familiarity": 0.3,
+      "last_interaction": "2026-02-06T13:53:42.298742+08:00",
+      "interaction_count": 4,
+      "shared_topics": [
+        "biology"
+      ]
+    }
+  },
+  "knowledge": {},
+  "subscriptions": [],
+  "last_active": "2026-02-06T14:00:53.150578+08:00"
+}
