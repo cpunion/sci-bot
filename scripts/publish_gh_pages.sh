@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
 REMOTE="${REMOTE:-origin}"
 BRANCH="${BRANCH:-gh-pages}"
 DATA_DIR="${DATA_DIR:-./data/adk-simulation}"
@@ -41,7 +44,9 @@ if [[ -d "$WORKTREE_DIR" ]]; then
   rm -rf "$WORKTREE_DIR"
 fi
 
-if git ls-remote --heads "$REMOTE" "$BRANCH" >/dev/null 2>&1; then
+OUT_ABS="$(cd "$OUT_DIR" && pwd)"
+
+if git ls-remote --heads "$REMOTE" "$BRANCH" | grep -q .; then
   git fetch "$REMOTE" "$BRANCH"
   git worktree add -B "$BRANCH" "$WORKTREE_DIR" "$REMOTE/$BRANCH"
 else
@@ -54,7 +59,7 @@ fi
   # Remove everything except the worktree's .git pointer.
   find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
 
-  rsync -a "$OLDPWD/$OUT_DIR"/ ./
+  rsync -a "$OUT_ABS"/ ./
 
   touch .nojekyll
 
@@ -72,4 +77,3 @@ fi
 git push "$REMOTE" "$BRANCH"
 
 echo "Published to $REMOTE/$BRANCH"
-

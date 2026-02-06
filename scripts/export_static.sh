@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
 DATA_DIR="./data/adk-simulation"
 WEB_DIR="./web"
 OUT_DIR="./public"
@@ -95,4 +98,3 @@ touch "$OUT_DIR/.nojekyll"
 
 echo "Exported static site -> $OUT_DIR"
 echo "Test locally: python -m http.server -d \"$OUT_DIR\" 8000"
-
