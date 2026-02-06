@@ -8,6 +8,7 @@ DATA_DIR="./data/adk-simulation"
 WEB_DIR="./web"
 OUT_DIR="./public"
 REBUILD_FEED=1
+SITE_BASE_URL="${SITE_BASE_URL:-https://cpunion.github.io/sci-bot/}"
 
 usage() {
   cat <<'EOF'
@@ -95,6 +96,8 @@ done
 shopt -u nullglob
 
 touch "$OUT_DIR/.nojekyll"
+
+go run ./cmd/generate_sitemap -data "$DATA_DIR" -out "$OUT_DIR" -base "$SITE_BASE_URL" >/dev/null
 
 echo "Exported static site -> $OUT_DIR"
 echo "Test locally: python -m http.server -d \"$OUT_DIR\" 8000"
