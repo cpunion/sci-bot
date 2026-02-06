@@ -1,14 +1,16 @@
+import {
+  fetchJSON,
+  fetchJSONL,
+  forumCommentURL,
+  forumPostURL,
+  loadAgents,
+  loadManifest,
+  paperURL,
+  resolveAgentID,
+} from "./data.js";
 import { renderMarkdown, typesetMath } from "./markdown.js";
 
 const root = document.getElementById("agent-root");
-
-const fetchJSON = async (url) => {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status}`);
-  }
-  return res.json();
-};
 
 const formatTime = (iso) => {
   if (!iso) return "";
@@ -93,15 +95,16 @@ const renderAgent = (detail) => {
 const getPublicationURL = (item) => {
   if (!item || !item.id) return "";
   if (item.channel === "journal") {
-    return `/paper/${encodeURIComponent(item.id)}`;
+    return paperURL(item.id);
   }
   // Best-effort links for forum content.
   if (item.channel === "forum") {
     if (!item.is_comment) {
-      return `/forum?post=${encodeURIComponent(item.id)}`;
+      return forumPostURL(item.id);
     }
-    if (item.parent_id) {
-      return `/forum?post=${encodeURIComponent(item.parent_id)}#${encodeURIComponent(item.id)}`;
+    const rootID = item.root_post_id || item.parent_id || "";
+    if (rootID) {
+      return forumCommentURL(rootID, item.id);
     }
   }
   return "";
@@ -184,17 +187,103 @@ const renderNote = (note) => {
 };
 
 const init = async () => {
-  const agentID = getAgentId();
-  if (!agentID) {
+  const handle = getAgentId();
+  if (!handle) {
     root.innerHTML = `<div class="empty">Missing agent ID.</div>`;
     return;
   }
   try {
-    const detail = await fetchJSON(`/api/agents/${agentID}`);
-    renderAgent(detail);
+    const manifest = await loadManifest();
+    const agents = await loadAgents();
+    const resolvedID = resolveAgentID(handle, agents);
+
+    const agent = agents.find((a) => a.id === resolvedID) || { id: resolvedID, name: handle };
+
+    const forumPath = manifest?.forum_path || "forum/forum.json";
+    const forumRaw = await fetchJSON(forumPath);
+    const pubs = Object.values(forumRaw?.posts || {}).filter(Boolean);
+    const nodes = new Map();
+    pubs.forEach((p) => nodes.set(p.id, p));
+
+    const resolveRoot = (pubID) => {
+      const pub = nodes.get(pubID);
+      if (!pub) return "";
+      if (!pub.is_comment) return pub.id;
+      const seen = new Set([pub.id]);
+      let parentID = pub.parent_id;
+      while (parentID) {
+        if (seen.has(parentID)) break;
+        seen.add(parentID);
+        const parent = nodes.get(parentID);
+        if (!parent) break;
+        if (!parent.is_comment) return parent.id;
+        parentID = parent.parent_id;
+      }
+      return "";
+    };
+    const byAuthor = pubs.filter((p) => p.author_id === resolvedID);
+    const forumPosts = byAuthor.filter((p) => !p.is_comment);
+    const forumComments = byAuthor
+      .filter((p) => p.is_comment)
+      .map((c) => ({ ...c, root_post_id: resolveRoot(c.id) || c.parent_id }));
+    forumPosts.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+    forumComments.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+
+    const journalPath = manifest?.journal_path || "journal/journal.json";
+    const journalRaw = await fetchJSON(journalPath);
+    const approved = Object.values(journalRaw?.publications || {}).filter(Boolean).filter((p) => p.author_id === resolvedID);
+    const pending = Object.values(journalRaw?.pending || {}).filter(Boolean).filter((p) => p.author_id === resolvedID);
+    approved.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+    pending.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+
+    const dailyNotes = await loadDailyNotes(manifest, resolvedID, 10);
+
+    renderAgent({
+      agent,
+      forum_posts: forumPosts,
+      forum_comments: forumComments,
+      journal_approved: approved,
+      journal_pending: pending,
+      daily_notes: dailyNotes,
+    });
   } catch (err) {
     root.innerHTML = `<div class="empty">${err.message}</div>`;
   }
+};
+
+const parseYYYYMMDD = (value) => {
+  const m = String(value || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
+};
+
+const isoDateAddDays = (isoDate, deltaDays) => {
+  const parts = parseYYYYMMDD(isoDate);
+  if (!parts) return "";
+  const base = Date.UTC(parts.y, parts.m - 1, parts.d);
+  const dt = new Date(base + deltaDays * 86400 * 1000);
+  return dt.toISOString().slice(0, 10);
+};
+
+const loadDailyNotes = async (manifest, agentID, limitDays) => {
+  const simDate = String(manifest?.sim_time || "").slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const days = Math.max(1, Number(limitDays) || 10);
+  const out = [];
+
+  for (let i = 0; i < days; i++) {
+    const dateKey = isoDateAddDays(simDate, -i);
+    if (!dateKey) continue;
+    try {
+      const entries = await fetchJSONL(`agents/${encodeURIComponent(agentID)}/daily/${dateKey}.jsonl`);
+      if (entries && entries.length) {
+        out.push({ date: dateKey, entries });
+      }
+    } catch (_err) {
+      // ignore missing days
+    }
+  }
+
+  return out;
 };
 
 init();

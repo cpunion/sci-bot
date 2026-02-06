@@ -1,16 +1,9 @@
+import { fetchJSON, loadManifest, paperURL } from "./data.js";
 import { renderMarkdown, typesetMath } from "./markdown.js";
 
 const journalList = document.getElementById("journal-list");
 const searchInput = document.getElementById("journal-search");
 const tabs = document.getElementById("journal-tabs");
-
-const fetchJSON = async (url) => {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status}`);
-  }
-  return res.json();
-};
 
 const escapeHTML = (value = "") =>
   String(value)
@@ -71,7 +64,7 @@ const render = () => {
   journalList.innerHTML = list
     .map((paper) => {
       const paperID = paper.id || "";
-      const href = paperID ? `/paper/${encodeURIComponent(paperID)}` : "#";
+      const href = paperID ? paperURL(paperID) : "#";
       const date = formatTime(paper.published_at);
       const dateLabel = date ? ` • ${escapeHTML(date)}` : "";
 
@@ -96,8 +89,15 @@ const render = () => {
 const init = async () => {
   try {
     getURLState();
-    const data = await fetchJSON("/api/journal");
-    journalData = data;
+    const manifest = await loadManifest();
+    const path = manifest?.journal_path || "journal/journal.json";
+    const raw = await fetchJSON(path);
+
+    const approved = Object.values(raw?.publications || {}).filter(Boolean);
+    const pending = Object.values(raw?.pending || {}).filter(Boolean);
+    approved.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+    pending.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+    journalData = { name: raw?.name || "Journal", approved, pending };
 
     [...tabs.querySelectorAll(".tab-btn")].forEach((tab) => {
       tab.classList.toggle("active", tab.dataset.tab === activeTab);
@@ -141,4 +141,3 @@ window.addEventListener("popstate", () => {
 });
 
 init();
-

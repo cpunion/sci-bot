@@ -1,16 +1,9 @@
+import { fetchJSON, loadManifest, forumPostURL } from "./data.js";
 import { renderMarkdown, typesetMath } from "./markdown.js";
 
 const forumContent = document.getElementById("forum-content");
 const subredditList = document.getElementById("subreddit-list");
 const tabs = document.getElementById("forum-tabs");
-
-const fetchJSON = async (url) => {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status}`);
-  }
-  return res.json();
-};
 
 const formatTime = (iso) => {
   if (!iso) return "";
@@ -22,7 +15,37 @@ const formatTime = (iso) => {
   return date.toLocaleDateString();
 };
 
+const escapeHTML = (value = "") =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 const getQuery = () => new URLSearchParams(window.location.search);
+
+const safeValues = (map) => {
+  if (!map || typeof map !== "object") return [];
+  return Object.values(map).filter(Boolean);
+};
+
+const resolveRootPostID = (pubID, nodes) => {
+  const pub = nodes.get(pubID);
+  if (!pub) return "";
+  if (!pub.is_comment) return pub.id;
+  const seen = new Set([pub.id]);
+  let parentID = pub.parent_id;
+  while (parentID) {
+    if (seen.has(parentID)) break;
+    seen.add(parentID);
+    const parent = nodes.get(parentID);
+    if (!parent) break;
+    if (!parent.is_comment) return parent.id;
+    parentID = parent.parent_id;
+  }
+  return "";
+};
 
 const renderPostList = (posts) => {
   if (!posts.length) {
@@ -39,8 +62,10 @@ const renderPostList = (posts) => {
           <span>▼</span>
         </div>
         <div>
-          <div class="post-meta">r/${post.subreddit || "general"} • ${post.author_name || "unknown"} • ${formatTime(post.published_at)}</div>
-          <h3><a href="/forum?post=${post.id}">${post.title}</a></h3>
+          <div class="post-meta">r/${escapeHTML(post.subreddit || "general")} • ${escapeHTML(
+            post.author_name || "unknown"
+          )} • ${escapeHTML(formatTime(post.published_at))}</div>
+          <h3><a href="${escapeHTML(forumPostURL(post.id))}">${escapeHTML(post.title || "")}</a></h3>
           <div class="md">${renderMarkdown(post.abstract || post.content || "")}</div>
           <div class="post-meta">${post.comments || 0} comments</div>
         </div>
@@ -88,7 +113,7 @@ const buildCommentTree = (comments, rootID) => {
 const renderCommentNode = (comment, depth = 0) => `
   <div class="comment-node" id="${comment.id}" data-depth="${depth}">
     <div class="comment-body">
-      <small>Reply by ${comment.author_name || "unknown"} • ${formatTime(comment.published_at)}</small>
+      <small>Reply by ${escapeHTML(comment.author_name || "unknown")} • ${escapeHTML(formatTime(comment.published_at))}</small>
       <div class="md">${renderMarkdown(comment.content || "")}</div>
     </div>
     ${
@@ -119,8 +144,10 @@ const renderPostDetail = (post, comments) => {
         <span>▼</span>
       </div>
       <div>
-        <div class="post-meta">r/${post.subreddit || "general"} • ${post.author_name || "unknown"} • ${formatTime(post.published_at)}</div>
-        <h3>${post.title}</h3>
+        <div class="post-meta">r/${escapeHTML(post.subreddit || "general")} • ${escapeHTML(
+          post.author_name || "unknown"
+        )} • ${escapeHTML(formatTime(post.published_at))}</div>
+        <h3>${escapeHTML(post.title || "")}</h3>
         <div class="md">${renderMarkdown(post.content || post.abstract || "")}</div>
         <div class="post-meta">${post.comments || 0} comments</div>
       </div>
@@ -146,7 +173,7 @@ const renderSubreddits = (stats, active) => {
     .map(
       ([name, count]) => `
       <button data-subreddit="${name}" class="${active === name ? "active" : ""}">
-        r/${name} <small>(${count})</small>
+        r/${escapeHTML(name)} <small>(${count})</small>
       </button>
     `
     )
@@ -164,16 +191,43 @@ const loadForum = async () => {
   const sort = query.get("sort") || "hot";
   const subreddit = query.get("subreddit") || "";
 
+  const manifest = await loadManifest();
+  const forumPath = manifest?.forum_path || "forum/forum.json";
+  const forum = await fetchJSON(forumPath);
+  const pubs = safeValues(forum?.posts);
+  const nodes = new Map();
+  pubs.forEach((p) => nodes.set(p.id, p));
+
+  const postsAll = pubs.filter((p) => p && !p.is_comment);
+
+  const stats = {};
+  for (const p of postsAll) {
+    const sub = p.subreddit || "general";
+    stats[sub] = (stats[sub] || 0) + 1;
+  }
+
   if (postID) {
-    const detail = await fetchJSON(`/api/forum/posts/${postID}`);
-    renderPostDetail(detail.post, detail.comments || []);
-    renderSubreddits({}, subreddit);
+    const post = nodes.get(postID);
+    const comments = pubs.filter((p) => p && p.is_comment && resolveRootPostID(p.id, nodes) === postID);
+    renderPostDetail(post, comments || []);
+    renderSubreddits(stats, subreddit);
     return;
   }
 
-  const forum = await fetchJSON(`/api/forum?sort=${sort}&subreddit=${encodeURIComponent(subreddit)}&limit=30`);
-  renderPostList(forum.posts || []);
-  renderSubreddits(forum.subreddit_stats || {}, subreddit);
+  let list = postsAll;
+  if (subreddit) {
+    list = list.filter((p) => p.subreddit === subreddit);
+  }
+  if (sort === "recent" || sort === "new") {
+    list = [...list].sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+  } else {
+    list = [...list].sort(
+      (a, b) => (b.score ?? 0) - (a.score ?? 0) || new Date(b.published_at || 0) - new Date(a.published_at || 0)
+    );
+  }
+
+  renderPostList(list.slice(0, 30));
+  renderSubreddits(stats, subreddit);
 
   [...tabs.querySelectorAll(".tab-btn")].forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.sort === sort);

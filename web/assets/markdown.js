@@ -45,7 +45,7 @@ const inlineFormat = (text) => {
     return `<a href=\"${safe}\" target=\"_blank\" rel=\"noopener noreferrer\">${label}</a>`;
   });
   out = out.replace(/(^|[^\w])@([A-Za-z][A-Za-z0-9_-]{0,63})/g, (_match, prefix, handle) => {
-    const href = `/agent/${encodeURIComponent(handle)}`;
+    const href = `./agent.html?id=${encodeURIComponent(handle)}`;
     return `${prefix}<a class="mention" href="${href}">@${handle}</a>`;
   });
 

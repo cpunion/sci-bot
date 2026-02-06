@@ -167,6 +167,11 @@ func (s *ADKScheduler) AddAgent(ctx context.Context, persona *types.Persona) err
 	if err := state.Load(); err != nil {
 		log.Printf("Creating new state for %s", persona.Name)
 	}
+	// Keep the in-memory persona consistent with persisted state so UI/index files
+	// and agent instructions remain stable across resumed runs.
+	if state.AgentName != "" && persona.Name != state.AgentName {
+		persona.Name = state.AgentName
+	}
 
 	// Create tools
 	forumToolset := tools.NewForumToolset(s.forum, persona.ID, persona, state)
@@ -638,28 +643,28 @@ func (s *ADKScheduler) logEvent(ar *agentRunner, prompt actionPrompt, response s
 		return
 	}
 	ev := EventLog{
-		Timestamp:      time.Now(),
-		SimTime:        s.simTime,
-		Tick:           s.ticks,
-		AgentID:        ar.persona.ID,
-		AgentName:      ar.persona.Name,
-		ModelName:      ar.modelName,
-		Action:         prompt.action,
-		Prompt:         truncateRunes(prompt.text, 500),
-		Response:       truncateRunes(response, 500),
-		ToolCalls:      toolCalls,
-		ToolResponses:  toolResponses,
-		TurnCount:      ar.turnCount,
-		BellRung:       ar.bellRung,
-		GraceRemaining: ar.graceRemaining,
-		Sleeping:       prompt.action == "sleep",
-		UsageEvents:          usage.UsageEvents,
-		PromptTokens:         usage.PromptTokens,
-		CandidatesTokens:     usage.CandidatesTokens,
-		ThoughtsTokens:       usage.ThoughtsTokens,
-		ToolUsePromptTokens:  usage.ToolUsePromptTokens,
-		CachedContentTokens:  usage.CachedContentTokens,
-		TotalTokens:          usage.TotalTokens,
+		Timestamp:           time.Now(),
+		SimTime:             s.simTime,
+		Tick:                s.ticks,
+		AgentID:             ar.persona.ID,
+		AgentName:           ar.persona.Name,
+		ModelName:           ar.modelName,
+		Action:              prompt.action,
+		Prompt:              truncateRunes(prompt.text, 500),
+		Response:            truncateRunes(response, 500),
+		ToolCalls:           toolCalls,
+		ToolResponses:       toolResponses,
+		TurnCount:           ar.turnCount,
+		BellRung:            ar.bellRung,
+		GraceRemaining:      ar.graceRemaining,
+		Sleeping:            prompt.action == "sleep",
+		UsageEvents:         usage.UsageEvents,
+		PromptTokens:        usage.PromptTokens,
+		CandidatesTokens:    usage.CandidatesTokens,
+		ThoughtsTokens:      usage.ThoughtsTokens,
+		ToolUsePromptTokens: usage.ToolUsePromptTokens,
+		CachedContentTokens: usage.CachedContentTokens,
+		TotalTokens:         usage.TotalTokens,
 	}
 	if err := s.logger.LogEvent(ev); err != nil {
 		log.Printf("Failed to log event: %v", err)

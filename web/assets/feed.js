@@ -1,14 +1,14 @@
+import {
+  agentProfileURL,
+  fetchJSON,
+  fetchJSONL,
+  forumCommentURL,
+  forumPostURL,
+  loadManifest,
+} from "./data.js";
 import { renderMarkdown, typesetMath } from "./markdown.js";
 
 const root = document.getElementById("feed-root");
-
-const fetchJSON = async (url) => {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status}`);
-  }
-  return res.json();
-};
 
 const escapeHTML = (value = "") =>
   String(value)
@@ -51,7 +51,7 @@ const renderTools = (calls = [], responses = []) => {
 
 const renderEvent = (ev) => {
   const who = ev.agent_name || ev.agent_id || "agent";
-  const whoURL = ev.actor_url || (ev.agent_id ? `/agent/${ev.agent_id}` : "");
+  const whoURL = ev.actor_url || (ev.agent_id ? agentProfileURL(ev.agent_id) : "");
   const action = ev.action || "action";
   const when = formatDateTime(ev.sim_time || ev.timestamp);
   const tick = Number.isFinite(ev.tick) ? ` • tick ${ev.tick}` : "";
@@ -102,19 +102,59 @@ const init = async () => {
   try {
     const params = new URLSearchParams(window.location.search);
     const limit = params.get("limit") || "200";
-    const log = params.get("log") || "";
+    const requestedLog = (params.get("log") || "").trim();
+    const lim = Math.max(1, Math.min(2000, Number(limit) || 200));
 
-    const url = new URL("/api/feed", window.location.origin);
-    url.searchParams.set("limit", limit);
-    if (log) url.searchParams.set("log", log);
+    const manifest = await loadManifest();
+    const logNames = Array.isArray(manifest?.logs) ? manifest.logs : [];
 
-    const feed = await fetchJSON(url.toString());
-    const events = feed.events || [];
+    let logsToLoad = [];
+    let logLabel = requestedLog || "all";
+    if (!requestedLog || requestedLog === "all") {
+      logsToLoad = logNames.length ? logNames : ["logs.jsonl"];
+      logLabel = "all";
+    } else {
+      logsToLoad = [requestedLog];
+    }
+
+    const all = [];
+    for (const name of logsToLoad) {
+      try {
+        const evs = await fetchJSONL(name);
+        for (const ev of evs || []) {
+          all.push(ev);
+        }
+      } catch (_err) {
+        // ignore missing logs
+      }
+    }
+
+    all.sort((a, b) => {
+      const at = new Date(a.sim_time || a.timestamp || 0).getTime();
+      const bt = new Date(b.sim_time || b.timestamp || 0).getTime();
+      if (at === bt) {
+        return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+      }
+      return bt - at;
+    });
+
+    const events = all.slice(0, lim);
+
+    await hydrateFromDailyNotes(events);
+
+    // Best-effort enrich content links via forum timestamps.
+    try {
+      const forumPath = manifest?.forum_path || "forum/forum.json";
+      const forumRaw = await fetchJSON(forumPath);
+      enrichFromForum(events, forumRaw);
+    } catch (_err) {
+      // ignore enrichment errors
+    }
 
     root.innerHTML = `
       <section class="feed-section">
         <h3>Global Feed</h3>
-        <div class="post-meta">Log: <code>${escapeHTML(feed.log || "")}</code> • events: ${events.length}</div>
+        <div class="post-meta">Log: <code>${escapeHTML(logLabel)}</code> • events: ${events.length}</div>
       </section>
       <section class="feed-section">
         ${events.length ? events.map(renderEvent).join("") : `<div class="empty">No events found.</div>`}
@@ -123,6 +163,150 @@ const init = async () => {
     typesetMath(root);
   } catch (err) {
     root.innerHTML = `<div class="empty">${escapeHTML(err.message)}</div>`;
+  }
+};
+
+const normalizeToSeconds = (iso) => {
+  if (!iso) return "";
+  return String(iso).replace(/\.\d+(?=Z|[+-]\d\d:\d\d$)/, "");
+};
+
+const dailyCache = new Map(); // key: `${agent_id}|${YYYY-MM-DD}` -> Promise<map>
+
+const loadDailyIndex = async (agentID, dateKey) => {
+  const key = `${agentID}|${dateKey}`;
+  if (dailyCache.has(key)) return dailyCache.get(key);
+
+  const p = (async () => {
+    try {
+      const entries = await fetchJSONL(`agents/${encodeURIComponent(agentID)}/daily/${dateKey}.jsonl`);
+      const map = new Map();
+      for (const e of entries || []) {
+        if (e && e.timestamp) {
+          map.set(String(e.timestamp), e);
+        }
+      }
+      return map;
+    } catch (_err) {
+      return new Map();
+    }
+  })();
+
+  dailyCache.set(key, p);
+  return p;
+};
+
+const hydrateFromDailyNotes = async (events) => {
+  const tasks = [];
+  for (const ev of events || []) {
+    const sim = String(ev?.sim_time || "");
+    const agentID = String(ev?.agent_id || "");
+    if (!sim || !agentID) continue;
+    const dateKey = sim.slice(0, 10);
+    if (!dateKey) continue;
+    const tsKey = normalizeToSeconds(sim);
+
+    tasks.push(
+      (async () => {
+        const idx = await loadDailyIndex(agentID, dateKey);
+        const entry = idx.get(tsKey);
+        if (!entry) return;
+        if (entry.prompt) ev.prompt = entry.prompt;
+        if (entry.reply) ev.response = entry.reply;
+      })()
+    );
+  }
+  await Promise.all(tasks);
+};
+
+const enrichFromForum = (events, forumRaw) => {
+  const pubs = Object.values(forumRaw?.posts || {}).filter(Boolean);
+  const nodes = new Map();
+  pubs.forEach((p) => nodes.set(p.id, p));
+
+  const resolveRoot = (pubID) => {
+    const pub = nodes.get(pubID);
+    if (!pub) return "";
+    if (!pub.is_comment) return pub.id;
+    const seen = new Set([pub.id]);
+    let parentID = pub.parent_id;
+    while (parentID) {
+      if (seen.has(parentID)) break;
+      seen.add(parentID);
+      const parent = nodes.get(parentID);
+      if (!parent) break;
+      if (!parent.is_comment) return parent.id;
+      parentID = parent.parent_id;
+    }
+    return "";
+  };
+
+  const postsByAuthor = new Map();
+  const commentsByAuthor = new Map();
+  for (const p of pubs) {
+    if (!p?.author_id) continue;
+    const m = p.is_comment ? commentsByAuthor : postsByAuthor;
+    if (!m.has(p.author_id)) m.set(p.author_id, []);
+    m.get(p.author_id).push(p);
+  }
+
+  for (const arr of postsByAuthor.values()) {
+    arr.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+  }
+  for (const arr of commentsByAuthor.values()) {
+    arr.sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+  }
+
+  const maxDelta = 10 * 60 * 1000;
+  const findClosest = (items, atMS) => {
+    if (!items?.length || !Number.isFinite(atMS)) return null;
+    let best = null;
+    let bestDelta = 0;
+    for (const item of items) {
+      const t = new Date(item.published_at || 0).getTime();
+      if (!Number.isFinite(t)) continue;
+      const d = Math.abs(t - atMS);
+      if (d > maxDelta) continue;
+      if (!best || d < bestDelta) {
+        best = item;
+        bestDelta = d;
+      }
+    }
+    return best;
+  };
+
+  for (const ev of events || []) {
+    if (!ev || !ev.agent_id) continue;
+    ev.actor_url = agentProfileURL(ev.agent_id);
+    if (ev.content_url) continue;
+
+    const atMS = new Date(ev.timestamp || 0).getTime();
+    const calls = Array.isArray(ev.tool_calls) ? ev.tool_calls : [];
+
+    if (calls.includes("create_post")) {
+      const post = findClosest(postsByAuthor.get(ev.agent_id), atMS);
+      if (post) {
+        ev.content_kind = "forum_post";
+        ev.content_id = post.id;
+        ev.content_title = post.title || "";
+        ev.content_url = forumPostURL(post.id);
+        continue;
+      }
+    }
+
+    if (calls.includes("comment") || calls.includes("request_consensus")) {
+      const comment = findClosest(commentsByAuthor.get(ev.agent_id), atMS);
+      if (comment) {
+        const rootID = resolveRoot(comment.id) || comment.parent_id || "";
+        if (rootID) {
+          const root = nodes.get(rootID);
+          ev.content_kind = "forum_comment";
+          ev.content_id = comment.id;
+          ev.content_title = root?.title || "Open thread";
+          ev.content_url = forumCommentURL(rootID, comment.id);
+        }
+      }
+    }
   }
 };
 

@@ -36,6 +36,8 @@ Thumbs.db
 
 # Data directory (runtime data)
 /data/
+/web/data
+/web/data/
 
 # Debug
 __debug_bin*

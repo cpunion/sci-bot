@@ -1,14 +1,7 @@
+import { fetchJSON, loadManifest } from "./data.js";
 import { renderMarkdown, typesetMath } from "./markdown.js";
 
 const root = document.getElementById("paper-root");
-
-const fetchJSON = async (url) => {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status}`);
-  }
-  return res.json();
-};
 
 const escapeHTML = (value = "") =>
   String(value)
@@ -47,7 +40,7 @@ const renderPaper = (data) => {
   root.innerHTML = `
     <section class="feed-section paper-page">
       <div class="paper-topline">
-        <a class="tab-btn" href="/journal">Back to Journal</a>
+        <a class="tab-btn" href="./journal.html">Back to Journal</a>
         <span class="badge">${escapeHTML(statusLabel)}</span>
       </div>
 
@@ -77,12 +70,21 @@ const init = async () => {
     return;
   }
   try {
-    const data = await fetchJSON(`/api/journal/papers/${encodeURIComponent(paperID)}`);
-    renderPaper(data);
+    const manifest = await loadManifest();
+    const path = manifest?.journal_path || "journal/journal.json";
+    const raw = await fetchJSON(path);
+
+    const published = raw?.publications || {};
+    const pending = raw?.pending || {};
+    const paper = published?.[paperID] || pending?.[paperID] || null;
+    const status = published?.[paperID] ? "published" : pending?.[paperID] ? "pending" : "";
+    if (!paper) {
+      throw new Error("Paper not found.");
+    }
+    renderPaper({ journal_name: raw?.name || "Journal", status, paper });
   } catch (err) {
     root.innerHTML = `<div class="empty">${escapeHTML(err.message)}</div>`;
   }
 };
 
 init();
-

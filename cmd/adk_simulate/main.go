@@ -2,18 +2,21 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	ailibmodel "github.com/cpunion/ailib/adk/model"
 	"github.com/cpunion/sci-bot/pkg/publication"
 	"github.com/cpunion/sci-bot/pkg/simulation"
+	"github.com/cpunion/sci-bot/pkg/site"
 	"github.com/cpunion/sci-bot/pkg/types"
 	"github.com/joho/godotenv"
 	"google.golang.org/adk/model"
@@ -94,7 +97,16 @@ func main() {
 		fmt.Printf("Resume sim time: %s\n", startTime.Format(time.RFC3339))
 	}
 
-	personas := simulation.GeneratePersonas(*agentCount, *seed)
+	personas, err := loadOrCreatePersonas(*dataPath, *agentCount, *seed)
+	if err != nil {
+		log.Printf("Warning: failed to load personas index, using generated personas: %v", err)
+		personas = simulation.GeneratePersonas(*agentCount, *seed)
+	}
+
+	// Keep a static agents index for the frontend (no server API required).
+	if err := site.WriteAgentCatalog(filepath.Join(*dataPath, "agents", "agents.json"), personas); err != nil {
+		log.Printf("Warning: failed to write agents index: %v", err)
+	}
 	if len(forum.AllPosts()) == 0 {
 		seedInitialContent(forum, personas)
 	}
@@ -142,6 +154,21 @@ func main() {
 		log.Printf("Warning: failed to save state: %v", err)
 	}
 
+	// Persist personas so resumed runs keep consistent identities without needing flags.
+	if err := savePersonas(*dataPath, *seed, personas); err != nil {
+		log.Printf("Warning: failed to write personas.json: %v", err)
+	}
+	// Re-write the public agents index after the run, because agent names may
+	// have been updated from persisted state during AddAgent.
+	if err := site.WriteAgentCatalog(filepath.Join(*dataPath, "agents", "agents.json"), personas); err != nil {
+		log.Printf("Warning: failed to write agents index: %v", err)
+	}
+
+	// Write a static site manifest so a purely-static frontend can discover files.
+	if err := writeStaticManifest(*dataPath, *logPath, forum, journal, personas); err != nil {
+		log.Printf("Warning: failed to write site manifest: %v", err)
+	}
+
 	if summary, err := analyzeLog(*logPath); err == nil {
 		printSummary(summary)
 	} else {
@@ -149,6 +176,160 @@ func main() {
 	}
 
 	fmt.Println("\nState saved to:", *dataPath)
+}
+
+func loadOrCreatePersonas(dataPath string, count int, seed int64) ([]*types.Persona, error) {
+	path := filepath.Join(dataPath, "personas.json")
+	data, err := os.ReadFile(path)
+	if err == nil {
+		var store struct {
+			Version  int              `json:"version"`
+			Seed     int64            `json:"seed,omitempty"`
+			Personas []*types.Persona `json:"personas"`
+		}
+		if jsonErr := json.Unmarshal(data, &store); jsonErr == nil && len(store.Personas) > 0 {
+			out := store.Personas
+			if seed == 0 && store.Seed != 0 {
+				seed = store.Seed
+			}
+			if count > 0 && count < len(out) {
+				return out[:count], nil
+			}
+			if count > 0 && count > len(out) {
+				expanded := simulation.GeneratePersonas(count, seed)
+				byID := make(map[string]*types.Persona, len(out))
+				for _, p := range out {
+					if p != nil && p.ID != "" {
+						byID[p.ID] = p
+					}
+				}
+				merged := make([]*types.Persona, 0, len(expanded))
+				for _, p := range expanded {
+					if p == nil || p.ID == "" {
+						continue
+					}
+					if existing, ok := byID[p.ID]; ok {
+						merged = append(merged, existing)
+					} else {
+						merged = append(merged, p)
+					}
+				}
+				_ = savePersonas(dataPath, seed, merged)
+				return merged, nil
+			}
+			return out, nil
+		}
+	}
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	personas := simulation.GeneratePersonas(count, seed)
+	if writeErr := savePersonas(dataPath, seed, personas); writeErr != nil {
+		return personas, writeErr
+	}
+	return personas, nil
+}
+
+func savePersonas(dataPath string, seed int64, personas []*types.Persona) error {
+	store := struct {
+		Version     int              `json:"version"`
+		GeneratedAt time.Time        `json:"generated_at"`
+		Seed        int64            `json:"seed,omitempty"`
+		Personas    []*types.Persona `json:"personas"`
+	}{
+		Version:     1,
+		GeneratedAt: time.Now(),
+		Seed:        seed,
+		Personas:    personas,
+	}
+	data, err := json.MarshalIndent(store, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dataPath, "personas.json"), data, 0644)
+}
+
+func writeStaticManifest(dataPath string, logPath string, forum *publication.Forum, journal *publication.Journal, personas []*types.Persona) error {
+	state, _ := simulation.LoadSimState(dataPath)
+
+	logs := discoverLogs(dataPath)
+	defaultLog := filepath.Base(logPath)
+	if defaultLog != "" && defaultLog != logPath {
+		// non-empty base
+	} else if defaultLog == "" {
+		defaultLog = ""
+	}
+	if defaultLog != "" {
+		found := false
+		for _, n := range logs {
+			if n == defaultLog {
+				found = true
+				break
+			}
+		}
+		if !found {
+			logs = append([]string{defaultLog}, logs...)
+		}
+	}
+
+	var forumThreads int
+	if forum != nil {
+		for _, p := range forum.AllPosts() {
+			if p != nil && !p.IsComment {
+				forumThreads++
+			}
+		}
+	}
+
+	jApproved := 0
+	jPending := 0
+	if journal != nil {
+		jApproved = len(journal.GetApproved())
+		jPending = len(journal.GetPending())
+	}
+
+	m := site.Manifest{
+		Version:     1,
+		GeneratedAt: time.Now(),
+		AgentsPath:  "agents/agents.json",
+		ForumPath:   "forum/forum.json",
+		JournalPath: "journal/journal.json",
+		Logs:        logs,
+		DefaultLog:  defaultLog,
+		Stats: site.ManifestStats{
+			AgentCount:      len(personas),
+			ForumThreads:    forumThreads,
+			JournalApproved: jApproved,
+			JournalPending:  jPending,
+		},
+	}
+	if state != nil {
+		m.SimTime = state.SimTime
+		m.StepSeconds = state.StepSeconds
+	}
+
+	return site.WriteManifest(filepath.Join(dataPath, "site.json"), m)
+}
+
+func discoverLogs(dataPath string) []string {
+	entries, err := os.ReadDir(dataPath)
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if !strings.HasPrefix(name, "logs") || !strings.HasSuffix(name, ".jsonl") {
+			continue
+		}
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func normalizeModelSpec(spec string) string {

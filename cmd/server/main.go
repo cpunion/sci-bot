@@ -374,6 +374,13 @@ func main() {
 		}, http.StatusOK, nil
 	}))
 
+	// Serve simulation data for the static frontend (no server API required).
+	// This makes `./web/*.html` able to fetch `./data/*` when running locally.
+	mux.Handle("/data/", http.StripPrefix("/data/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		http.FileServer(http.Dir(*dataPath)).ServeHTTP(w, r)
+	})))
+
 	mux.HandleFunc("/forum", serveStaticFile(*webPath, "forum.html"))
 	mux.HandleFunc("/journal", serveStaticFile(*webPath, "journal.html"))
 	mux.HandleFunc("/paper/", serveStaticFile(*webPath, "paper.html"))
