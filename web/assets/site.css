@@ -408,6 +408,20 @@ main {
   font-family: "Source Serif 4", serif;
 }
 
+.paper.clickable {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.paper.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.paper.is-selected {
+  outline: 2px solid rgba(15, 118, 110, 0.35);
+}
+
 .paper h3 {
   margin: 0 0 6px;
 }
@@ -416,6 +430,18 @@ main {
   font-size: 0.85rem;
   color: var(--muted);
   margin-bottom: 8px;
+}
+
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.sidebar-top h4 {
+  margin: 0;
 }
 
 .paper p {

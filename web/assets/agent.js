@@ -23,6 +23,14 @@ const formatDateTime = (iso) => {
   return date.toLocaleString();
 };
 
+const escapeHTML = (value = "") =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 const getAgentId = () => {
   const params = new URLSearchParams(window.location.search);
   const paramID = params.get("id");
@@ -82,11 +90,30 @@ const renderAgent = (detail) => {
   typesetMath(root);
 };
 
+const getPublicationURL = (item) => {
+  if (!item || !item.id) return "";
+  if (item.channel === "journal") {
+    return `/journal?paper=${encodeURIComponent(item.id)}`;
+  }
+  // Best-effort links for forum content.
+  if (item.channel === "forum") {
+    if (!item.is_comment) {
+      return `/forum?post=${encodeURIComponent(item.id)}`;
+    }
+    if (item.parent_id) {
+      return `/forum?post=${encodeURIComponent(item.parent_id)}#${encodeURIComponent(item.id)}`;
+    }
+  }
+  return "";
+};
+
 const renderFeedItem = (item) => {
+  const url = getPublicationURL(item);
+  const title = escapeHTML(item.title || "Untitled");
   return `
     <div class="feed-item">
-      <h4>${item.title || "Untitled"}</h4>
-      <small>${formatTime(item.published_at)} • ${item.subreddit ? `r/${item.subreddit}` : ""}</small>
+      <h4>${url ? `<a href="${escapeHTML(url)}">${title}</a>` : title}</h4>
+      <small>${escapeHTML(formatTime(item.published_at))} • ${item.subreddit ? `r/${escapeHTML(item.subreddit)}` : ""}</small>
       <div class="md">${renderMarkdown(item.abstract || item.content || "")}</div>
     </div>
   `;
